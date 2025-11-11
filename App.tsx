@@ -75,6 +75,8 @@ const App: React.FC = () => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMission, setChatMission] = useState<Mission | null>(null);
     const [currentInterior, setCurrentInterior] = useState<Interior | null>(null);
+    const [poppingCollectibles, setPoppingCollectibles] = useState<GameObject[]>([]);
+
     
     // Developer Mode State
     const [devOptionsUnlocked, setDevOptionsUnlocked] = useState(false);
@@ -187,11 +189,30 @@ const App: React.FC = () => {
                  }
                  return { ...p, coins: p.coins + mission.recompensa_monedas, xp: newXp, level: newLevel, gems: newGems };
             });
-            setMissions(prevMissions => prevMissions.map(m => {
-                if (m.id === missionId) return { ...m, status: 'completada', paso_actual: m.paso_actual + 1 };
-                if (m.id === missionId + 1) return { ...m, status: 'disponible' }; // Unlock next mission
-                return m;
-            }));
+            
+            setMissions(prevMissions => {
+                 const newMissions = [...prevMissions];
+                const completedMissionIndex = newMissions.findIndex(m => m.id === missionId);
+                if (completedMissionIndex === -1) return newMissions;
+
+                newMissions[completedMissionIndex] = {
+                    ...newMissions[completedMissionIndex],
+                    status: 'completada',
+                    paso_actual: newMissions[completedMissionIndex].paso_actual + 1,
+                };
+                
+                const nextMission = newMissions.find(m => m.status === 'bloqueada');
+                if(nextMission) {
+                    const nextMissionIndex = newMissions.findIndex(m => m.id === nextMission.id);
+                    newMissions[nextMissionIndex] = {
+                        ...newMissions[nextMissionIndex],
+                        status: 'disponible',
+                    };
+                    showNotification(`Nueva misión disponible: "${newMissions[nextMissionIndex].titulo}"`);
+                }
+                
+                return newMissions;
+            });
         } else {
             setMissions(prevMissions => prevMissions.map(m => {
                 if (m.id === missionId) {
@@ -562,40 +583,58 @@ const App: React.FC = () => {
                         }
                     }
                     
-                    // --- Collectible Collision Check ---
                     const playerCenterX = newX + PLAYER_WIDTH / 2;
                     const playerCenterY = newY + PLAYER_HEIGHT / 2;
                     let playerUpdate = {};
+                    const collectedThisFrame: GameObject[] = [];
+                    let coinsGained = 0;
+                    const gemsGained: { [key: string]: number } = {};
 
                     const remainingGameObjects = gameObjectsRef.current.filter(obj => {
                         if (!obj.collectibleType) return true;
+                        
+                        const objectIsForCurrentLocation = currentInterior ? obj.interiorId === currentInterior.id : !obj.interiorId;
+                        if (!objectIsForCurrentLocation) return true;
 
                         const collectibleCenterX = obj.x + obj.width / 2;
                         const collectibleCenterY = obj.y + obj.height / 2;
                         const dist = Math.hypot(playerCenterX - collectibleCenterX, playerCenterY - collectibleCenterY);
 
                         if (dist < (PLAYER_WIDTH / 2 + obj.width / 2)) {
-                            if (obj.collectibleType === 'coin') {
-                                playerUpdate = { ...playerUpdate, coins: prev.coins + (obj.value || 1) };
-                                showNotification(`+${obj.value || 1} moneda!`, 1000);
+                            collectedThisFrame.push(obj);
+                             if (obj.collectibleType === 'coin') {
+                                coinsGained += (obj.value || 1);
                             } else if (obj.collectibleType === 'gem' && obj.gemColor) {
-                                const newGems = { ...prev.gems };
-                                newGems[obj.gemColor] = (newGems[obj.gemColor] || 0) + 1;
-                                playerUpdate = { ...playerUpdate, gems: newGems };
-                                showNotification(`+1 gema!`, 1000);
+                                gemsGained[obj.gemColor] = (gemsGained[obj.gemColor] || 0) + 1;
                             }
                             
                             setTimeout(() => {
                                 setGameObjects(currentObjects => [...currentObjects, obj]);
                             }, COLLECTIBLE_RESPAWN_TIME);
                             
-                            return false; // Remove from list
+                            return false;
                         }
-                        return true; // Keep in list
+                        return true;
                     });
                     
-                    if (Object.keys(playerUpdate).length > 0) {
+                    if (collectedThisFrame.length > 0) {
                          setGameObjects(remainingGameObjects);
+                         setPoppingCollectibles(prevPopping => [...prevPopping, ...collectedThisFrame]);
+                         collectedThisFrame.forEach(obj => {
+                            setTimeout(() => {
+                                setPoppingCollectibles(currentPopping => currentPopping.filter(p => p.id !== obj.id));
+                            }, 500);
+                         });
+
+                         if (coinsGained > 0) showNotification(`+${coinsGained} moneda!`, 1000);
+                         const numGems = Object.values(gemsGained).reduce((a, b) => a + b, 0);
+                         if (numGems > 0) showNotification(`+${numGems} gema!`, 1000);
+
+                         const newGems = {...prev.gems};
+                         Object.entries(gemsGained).forEach(([color, amount]) => {
+                             newGems[color] = (newGems[color] || 0) + amount;
+                         });
+                         playerUpdate = { coins: prev.coins + coinsGained, gems: newGems };
                     }
 
                     return { ...prev, x: newX, y: newY, interactionTarget: closestTarget, isMoving, ...playerUpdate };
@@ -685,6 +724,13 @@ const App: React.FC = () => {
         }
         return !obj.interiorId;
     });
+    
+    const poppingCollectiblesToRender = poppingCollectibles.filter(obj => {
+         if (currentInterior) {
+            return obj.interiorId === currentInterior.id;
+        }
+        return !obj.interiorId;
+    });
 
     return (
         <div className="app-container">
@@ -696,6 +742,9 @@ const App: React.FC = () => {
                          {objectsToRender.map(obj => (
                             <div key={obj.id} id={obj.id} className={`game-object ${obj.type} ${obj.collectibleType ? `collectible ${obj.collectibleType}` : ''}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, color: obj.gemColor, backgroundColor: obj.type !== 'npc' && !obj.gemColor ? obj.color : undefined }}>
                             </div>
+                        ))}
+                        {poppingCollectiblesToRender.map(obj => (
+                            <div key={`pop-${obj.id}`} className={`collectible-pop ${obj.collectibleType}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, backgroundColor: obj.collectibleType === 'coin' ? '#FFD700' : obj.gemColor, color: obj.collectibleType === 'gem' ? obj.gemColor : '#FFD700' }} />
                         ))}
                         <div className={playerClasses} style={{ left: playerState.x, top: playerState.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }}>
                             <div className="player-body">
@@ -751,6 +800,10 @@ const App: React.FC = () => {
                                 </div>
                             );
                         })}
+                        
+                        {poppingCollectiblesToRender.map(obj => (
+                            <div key={`pop-${obj.id}`} className={`collectible-pop ${obj.collectibleType}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, backgroundColor: obj.collectibleType === 'coin' ? '#FFD700' : obj.gemColor, color: obj.collectibleType === 'gem' ? obj.gemColor : '#FFD700' }} />
+                        ))}
 
                         <div className={playerClasses} style={{ left: playerState.x, top: playerState.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }}>
                             <div className="player-body">

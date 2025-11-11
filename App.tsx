@@ -13,8 +13,8 @@ import {
   PLAYER_WIDTH,
   PLAYER_HEIGHT,
   INITIAL_XP_TO_LEVEL_UP,
-  VIEWPORT_WIDTH,
-  VIEWPORT_HEIGHT,
+  BASE_VIEWPORT_WIDTH,
+  BASE_VIEWPORT_HEIGHT,
   GAME_VERSION,
   GEM_SELL_VALUE,
   COLLECTIBLE_RESPAWN_TIME,
@@ -90,6 +90,7 @@ const App: React.FC = () => {
     const [isAdaChatOpen, setIsAdaChatOpen] = useState(false);
     const [currentInterior, setCurrentInterior] = useState<Interior | null>(null);
     const [poppingCollectibles, setPoppingCollectibles] = useState<GameObject[]>([]);
+    const [viewportSize, setViewportSize] = useState({ width: BASE_VIEWPORT_WIDTH, height: BASE_VIEWPORT_HEIGHT });
 
     // Developer Mode State
     const [devOptionsUnlocked, setDevOptionsUnlocked] = useState(false);
@@ -118,6 +119,29 @@ const App: React.FC = () => {
     
     const gameObjectsRef = useRef(gameObjects);
     gameObjectsRef.current = gameObjects;
+
+    useEffect(() => {
+        const handleResize = () => {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const aspectRatio = BASE_VIEWPORT_WIDTH / BASE_VIEWPORT_HEIGHT;
+
+            let newWidth = screenWidth - 40; // Add some margin
+            let newHeight = newWidth / aspectRatio;
+
+            if (newHeight > screenHeight - 40) { // Add some margin
+                newHeight = screenHeight - 40;
+                newWidth = newHeight * aspectRatio;
+            }
+
+            setViewportSize({ width: newWidth, height: newHeight });
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial call
+
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
     
     const showNotification = useCallback((message: string, options: NotificationOptions = {}) => {
         const { duration = 3000, sound } = options;
@@ -934,8 +958,8 @@ const App: React.FC = () => {
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
 
-    const cameraX = Math.max(0, Math.min(playerState.x + PLAYER_WIDTH / 2 - VIEWPORT_WIDTH / 2, WORLD_WIDTH - VIEWPORT_WIDTH));
-    const cameraY = Math.max(0, Math.min(playerState.y + PLAYER_HEIGHT / 2 - VIEWPORT_HEIGHT / 2, WORLD_HEIGHT - VIEWPORT_HEIGHT));
+    const cameraX = Math.max(0, Math.min(playerState.x + PLAYER_WIDTH / 2 - viewportSize.width / 2, WORLD_WIDTH - viewportSize.width));
+    const cameraY = Math.max(0, Math.min(playerState.y + PLAYER_HEIGHT / 2 - viewportSize.height / 2, WORLD_HEIGHT - viewportSize.height));
 
     let missionTarget: GameObject | null = null;
     if (activeMission && !currentInterior) {
@@ -968,7 +992,7 @@ const App: React.FC = () => {
     return (
         <div className="app-container">
             {isTeleporting && <div className="teleport-overlay"></div>}
-            <div className="game-viewport" style={{ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT }}>
+            <div className="game-viewport" style={{ width: viewportSize.width, height: viewportSize.height }}>
                 {currentInterior ? (
                     <div className="interior-view" style={{ width: currentInterior.width, height: currentInterior.height }}>
                         <div className="interior-exit-door" style={{ left: currentInterior.exit.x, top: currentInterior.exit.y, width: currentInterior.exit.width, height: currentInterior.exit.height }}></div>
@@ -1106,6 +1130,7 @@ const App: React.FC = () => {
                             playerState={playerState}
                             gameObjects={gameObjects}
                             missionTarget={missionTarget}
+                            viewportWidth={viewportSize.width}
                         />
                     )}
                 </div>

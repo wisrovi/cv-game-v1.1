@@ -7,11 +7,10 @@ export const PLAYER_HEIGHT = 35;
 
 export const WORLD_WIDTH = 2400;
 export const WORLD_HEIGHT = 1600;
-export const VIEWPORT_WIDTH = 1200;
-export const VIEWPORT_HEIGHT = 800;
+export const BASE_VIEWPORT_WIDTH = 1200;
+export const BASE_VIEWPORT_HEIGHT = 800;
 
 export const MINIMAP_SIZE = 180;
-export const MINIMAP_SCALE = MINIMAP_SIZE / (VIEWPORT_WIDTH * 1.2);
 
 
 export const INITIAL_XP_TO_LEVEL_UP = 100;

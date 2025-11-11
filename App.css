@@ -1,4 +1,5 @@
 
+
 :root {
   --player-color-1: #00aaff;
   --player-color-2: #0077cc;
@@ -640,56 +641,6 @@ body {
 .sources-container ul { margin: 5px 0 0; padding-left: 20px; }
 .sources-container li a { color: #99ccff; text-decoration: none; }
 .sources-container li a:hover { text-decoration: underline; }
-
-/* Live Conversation */
-.live-chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 15px;
-}
-.live-chat-header h3 {
-    margin: 0;
-    border-bottom: none;
-    padding-bottom: 0;
-}
-.status-indicator {
-    padding: 5px 10px;
-    border-radius: 12px;
-    font-size: 0.8em;
-}
-.status-indicator.connecting {
-    background-color: var(--color-available);
-    color: var(--text-dark);
-}
-.status-indicator.active {
-    background-color: #e74c3c;
-    color: white;
-    animation: pulse-live 1.5s infinite;
-}
-.status-indicator.error {
-    background-color: #555;
-    color: white;
-}
-@keyframes pulse-live {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-}
-.live-chat-box .message p {
-    text-align: left;
-}
-.live-chat-box .message p strong {
-    color: var(--xp-color);
-}
-.live-chat-box .user-message p strong {
-    color: #99ccff;
-}
-.partial-transcription {
-    opacity: 0.7;
-}
-
 
 /* Skill Tree */
 .skill-tree-container {

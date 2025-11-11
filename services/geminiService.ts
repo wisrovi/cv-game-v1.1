@@ -1,6 +1,7 @@
 
-import { GoogleGenAI, GenerateContentResponse, Blob } from "@google/genai";
-import { Mission, ChatMessage } from '../types';
+
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { Mission, ChatMessage, PlayerState } from '../types';
 
 export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -10,57 +11,6 @@ export const npcPersonas: { [key: string]: string } = {
     'Vendedor de Mejoras': 'Eres el Vendedor de Mejoras. Eres enérgico, persuasivo y siempre estás buscando una oportunidad para hablar de tus increíbles productos, aunque sea sutilmente. Tu tono es amigable y comercial.',
     'default': 'Eres un personaje amistoso en un videojuego interactivo que es un CV. Tu propósito es guiar al jugador.'
 };
-
-function encode(bytes: Uint8Array) {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-export function decode(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-export async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
-
-export function createPcmBlob(data: Float32Array): Blob {
-  const l = data.length;
-  const int16 = new Int16Array(l);
-  for (let i = 0; i < l; i++) {
-    int16[i] = data[i] * 32768;
-  }
-  return {
-    data: encode(new Uint8Array(int16.buffer)),
-    mimeType: 'audio/pcm;rate=16000',
-  };
-}
-
 
 export async function generateNpcDialogue(
   npcName: string, 
@@ -110,6 +60,55 @@ Genera un diálogo corto y atractivo (2-3 frases).
     return `Hola, soy ${npcName}. He encontrado un error al procesar mi diálogo, pero la misión trata sobre: "${mission.contenido_educativo.substring(0, 80)}...". ¡Sigue adelante!`;
   }
 }
+
+export async function generateAdaChatResponse(
+  chatHistory: ChatMessage[], 
+  playerState: PlayerState,
+  missions: Mission[],
+  userQuestion: string
+): Promise<string> {
+  try {
+    const persona = npcPersonas['Ada, la Guía'];
+    const historyPrompt = chatHistory.map(msg => `${msg.sender === 'user' ? 'Jugador' : 'Ada'}: ${msg.text}`).join('\n');
+
+    const activeMission = missions.find(m => m.status === 'disponible');
+    const completedMissions = missions.filter(m => m.status === 'completada');
+
+    const playerContext = `El jugador está en el nivel ${playerState.level} con ${Math.round(playerState.xp)} XP. Tiene ${playerState.coins} monedas y estas gemas: ${Object.entries(playerState.gems).map(([c, a]) => `${a} de color ${c}`).join(', ') || 'ninguna'}.
+Ha completado ${completedMissions.length} misiones.
+${activeMission ? `La misión actual es "${activeMission.titulo}", con el objetivo: "${activeMission.pasos[activeMission.paso_actual].descripcion}".` : 'Ha completado todas las misiones.'}`;
+
+    const prompt = `Eres Ada, la Guía, un personaje en un videojuego de CV interactivo sobre un desarrollador llamado "Wisrovi".
+
+**Tu Personalidad:**
+${persona}
+
+**Contexto del Juego:**
+El juego es un CV interactivo. Los edificios representan los proyectos de GitHub de Wisrovi (p. ej. wiliutils, wkafka). Las misiones guían al jugador para que aprenda sobre las habilidades y proyectos del desarrollador. El jugador puede subir de nivel, conseguir monedas y mejorar su personaje.
+
+**Contexto del Jugador:**
+${playerContext}
+
+**Historial de la Conversación:**
+${historyPrompt}
+
+**Pregunta del Jugador:** "${userQuestion}"
+
+**Tu Tarea:**
+Responde a la pregunta del jugador como Ada. Sé amable, alentadora y mantén tu personaje. Puedes dar pistas sobre la misión actual o sugerir explorar. Si la pregunta es sobre Wisrovi, responde basándote en que este CV es su portafolio. Si no sabes la respuesta, dilo amablemente. Mantén las respuestas cortas y conversacionales (2-4 frases).`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text;
+  } catch (error) {
+    console.error("Error generating Ada's chat response:", error);
+    return "Uhm... parece que mis circuitos de comunicación están un poco revueltos. ¿Podrías preguntar de nuevo?";
+  }
+}
+
 
 export async function generateChatResponse(mission: Mission, chatHistory: ChatMessage[], userQuestion: string): Promise<{ text: string; sources: { uri: string; title: string }[] }> {
     try {

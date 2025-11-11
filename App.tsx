@@ -1,8 +1,7 @@
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-// FIX: `LiveSession` is not an exported member from '@google/genai'.
-import { LiveServerMessage, Modality } from '@google/genai';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
 import {
   gameObjects as initialGameObjects,
@@ -23,11 +22,11 @@ import {
   COLLECTIBLE_RESPAWN_TIME,
   skillTree,
 } from './constants';
-import { generateNpcDialogue, ai, npcPersonas, decode, decodeAudioData, createPcmBlob } from './services/geminiService';
+import { generateNpcDialogue, generateAdaChatResponse } from './services/geminiService';
 import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockIcon } from './components/Icons';
 import MissionChat from './components/MissionChat';
 import SkillTreeDisplay from './components/SkillTreeDisplay';
-import LiveConversation from './components/LiveConversation';
+import AdaChat from './components/AdaChat';
 import './App.css';
 
 interface MissionArrowProps {
@@ -82,17 +81,10 @@ const App: React.FC = () => {
     const [showHud, setShowHud] = useState(true);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMission, setChatMission] = useState<Mission | null>(null);
+    const [isAdaChatOpen, setIsAdaChatOpen] = useState(false);
     const [currentInterior, setCurrentInterior] = useState<Interior | null>(null);
     const [poppingCollectibles, setPoppingCollectibles] = useState<GameObject[]>([]);
 
-    // Live Conversation State
-    const [isLiveSessionActive, setIsLiveSessionActive] = useState(false);
-    const [liveNpc, setLiveNpc] = useState<GameObject | null>(null);
-    const [conversationHistory, setConversationHistory] = useState<{ speaker: 'user' | 'model'; text: string }[]>([]);
-    const [currentUserInput, setCurrentUserInput] = useState('');
-    const [currentModelOutput, setCurrentModelOutput] = useState('');
-    const [sessionStatus, setSessionStatus] = useState<'idle' | 'connecting' | 'active' | 'error'>('idle');
-    
     // Developer Mode State
     const [devOptionsUnlocked, setDevOptionsUnlocked] = useState(false);
     const [teleporterEnabled, setTeleporterEnabled] = useState(false);
@@ -107,21 +99,7 @@ const App: React.FC = () => {
     const notificationTimeoutRef = useRef<number | null>(null);
     const versionClickTimeoutRef = useRef<number | null>(null);
     
-    // Refs for live session
-    // FIX: `LiveSession` is not an exported member. Use inferred type `ReturnType<typeof ai.live.connect>` instead.
-    const sessionPromiseRef = useRef<ReturnType<typeof ai.live.connect> | null>(null);
-    const inputAudioContextRef = useRef<AudioContext | null>(null);
-    const outputAudioContextRef = useRef<AudioContext | null>(null);
-    const microphoneStreamRef = useRef<MediaStream | null>(null);
-    const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-    const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-    const outputSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-    const nextStartTimeRef = useRef<number>(0);
-    // FIX: Add refs to store transcription history to avoid stale state in callbacks.
-    const currentUserInputForHistoryRef = useRef<string>('');
-    const currentModelOutputForHistoryRef = useRef<string>('');
-
-    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isLiveSessionActive;
+    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen;
     const isPausedRef = useRef(isGamePaused);
     isPausedRef.current = isGamePaused;
     
@@ -209,179 +187,17 @@ const App: React.FC = () => {
         }
     }, [missions, showNotification]);
 
-    const endLiveConversation = useCallback(async () => {
-        if (microphoneStreamRef.current) {
-            microphoneStreamRef.current.getTracks().forEach(track => track.stop());
-            microphoneStreamRef.current = null;
-        }
-        if (scriptProcessorRef.current) {
-            scriptProcessorRef.current.disconnect();
-            scriptProcessorRef.current = null;
-        }
-        if (mediaStreamSourceRef.current) {
-            mediaStreamSourceRef.current.disconnect();
-            mediaStreamSourceRef.current = null;
-        }
+    const handleCloseAdaChat = useCallback(() => {
+        setIsAdaChatOpen(false);
 
-        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
-            await inputAudioContextRef.current.close();
-            inputAudioContextRef.current = null;
-        }
-        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
-            outputSourcesRef.current.forEach(source => source.stop());
-            outputSourcesRef.current.clear();
-            await outputAudioContextRef.current.close();
-            outputAudioContextRef.current = null;
-        }
-        
-        if (sessionPromiseRef.current) {
-            try {
-                const session = await sessionPromiseRef.current;
-                session.close();
-            } catch (e) {
-                console.error("Error closing session:", e);
-            }
-            sessionPromiseRef.current = null;
-        }
-        
         const activeMission = missions.find(m => m.status === 'disponible');
-        if (activeMission && liveNpc) {
+        if (activeMission) {
             const currentStep = activeMission.pasos[activeMission.paso_actual];
-            if (currentStep.tipo === 'interactuar' && currentStep.objetoId === liveNpc.id) {
+            if (currentStep.tipo === 'interactuar' && currentStep.objetoId === 'npc_ada') {
                 advanceMissionStep(activeMission.id);
             }
         }
-        
-        setIsLiveSessionActive(false);
-        setLiveNpc(null);
-        setConversationHistory([]);
-        setCurrentUserInput('');
-        setCurrentModelOutput('');
-        setSessionStatus('idle');
-        nextStartTimeRef.current = 0;
-    }, [missions, liveNpc, advanceMissionStep]);
-
-    const startLiveConversation = useCallback(async (npc: GameObject) => {
-        if (isLiveSessionActive) return;
-
-        setLiveNpc(npc);
-        setIsLiveSessionActive(true);
-        setSessionStatus('connecting');
-        setConversationHistory([]);
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            microphoneStreamRef.current = stream;
-
-            inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-            outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            
-            let persona = npcPersonas[npc.name!] || npcPersonas['default'];
-            const activeMission = missions.find(m => m.status === 'disponible');
-            if (activeMission) {
-                const currentStep = activeMission.pasos[activeMission.paso_actual];
-                if (currentStep.tipo === 'interactuar' && currentStep.objetoId === npc.id) {
-                    persona += `\n\nContexto de la Misión Actual: El jugador está en la misión "${activeMission.titulo}". Tu objetivo es explicarle: "${activeMission.contenido_educativo}".`;
-                }
-            }
-            
-            sessionPromiseRef.current = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
-                    systemInstruction: persona,
-                    inputAudioTranscription: {},
-                    outputAudioTranscription: {},
-                },
-                callbacks: {
-                    onopen: () => {
-                        setSessionStatus('active');
-                        const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
-                        mediaStreamSourceRef.current = source;
-                        const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
-                        scriptProcessorRef.current = scriptProcessor;
-                        
-                        scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
-                            const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                            const pcmBlob = createPcmBlob(inputData);
-                            
-                            if (sessionPromiseRef.current) {
-                                sessionPromiseRef.current.then((session) => {
-                                    session.sendRealtimeInput({ media: pcmBlob });
-                                });
-                            }
-                        };
-                        source.connect(scriptProcessor);
-                        scriptProcessor.connect(inputAudioContextRef.current!.destination);
-                    },
-                    onmessage: async (message: LiveServerMessage) => {
-                        // FIX: Property 'isFinal' does not exist on type 'Transcription'. Use `turnComplete` instead.
-                        if (message.serverContent?.inputTranscription) {
-                            const transcript = message.serverContent.inputTranscription;
-                            setCurrentUserInput(transcript.text);
-                            currentUserInputForHistoryRef.current = transcript.text;
-                        }
-                        if (message.serverContent?.outputTranscription) {
-                            const transcript = message.serverContent.outputTranscription;
-                            setCurrentModelOutput(transcript.text);
-                            currentModelOutputForHistoryRef.current = transcript.text;
-                        }
-
-                        if (message.serverContent?.turnComplete) {
-                            const fullInput = currentUserInputForHistoryRef.current;
-                            const fullOutput = currentModelOutputForHistoryRef.current;
-                            
-                            if (fullInput || fullOutput) {
-                                setConversationHistory(prev => {
-                                    const newHistory = [...prev];
-                                    if (fullInput) {
-                                        newHistory.push({ speaker: 'user', text: fullInput });
-                                    }
-                                    if (fullOutput) {
-                                        newHistory.push({ speaker: 'model', text: fullOutput });
-                                    }
-                                    return newHistory;
-                                });
-                            }
-
-                            currentUserInputForHistoryRef.current = '';
-                            currentModelOutputForHistoryRef.current = '';
-                            setCurrentUserInput('');
-                            setCurrentModelOutput('');
-                        }
-
-                        const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                        if (base64Audio && outputAudioContextRef.current) {
-                            const oac = outputAudioContextRef.current;
-                            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, oac.currentTime);
-                            const audioBuffer = await decodeAudioData(decode(base64Audio), oac, 24000, 1);
-                            const source = oac.createBufferSource();
-                            source.buffer = audioBuffer;
-                            source.connect(oac.destination);
-                            source.addEventListener('ended', () => { outputSourcesRef.current.delete(source); });
-                            source.start(nextStartTimeRef.current);
-                            nextStartTimeRef.current += audioBuffer.duration;
-                            outputSourcesRef.current.add(source);
-                        }
-                    },
-                    onerror: (e: ErrorEvent) => {
-                        console.error('Live session error:', e);
-                        setSessionStatus('error');
-                        showNotification("Error en la conversación en vivo.", 3000);
-                        endLiveConversation();
-                    },
-                    onclose: (e: CloseEvent) => {
-                        endLiveConversation();
-                    },
-                }
-            });
-        } catch (error) {
-            console.error("Failed to start live conversation:", error);
-            showNotification("No se pudo acceder al micrófono.", 3000);
-            endLiveConversation();
-        }
-    }, [isLiveSessionActive, showNotification, endLiveConversation, missions]);
+    }, [missions, advanceMissionStep]);
     
     // Save/Load Logic
     const handleSaveGame = useCallback(() => {
@@ -519,7 +335,7 @@ const App: React.FC = () => {
 
         // --- Exterior Logic ---
         if (target.id === 'npc_ada') {
-            startLiveConversation(target);
+            setIsAdaChatOpen(true);
             return;
         }
         
@@ -607,7 +423,7 @@ const App: React.FC = () => {
         if (actionTaken) {
             advanceMissionStep(activeMission.id);
         }
-    }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior, gameObjects, startLiveConversation]);
+    }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior, gameObjects]);
 
     const buyShopItem = (item: ShopItem) => {
         if (playerState.coins >= item.cost && !playerState.upgrades.includes(item.id)) {
@@ -1015,7 +831,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (isChatOpen || isLiveSessionActive) return;
+            if (isChatOpen || isAdaChatOpen) return;
             
             if (e.key === ' ') {
                 e.preventDefault();
@@ -1037,6 +853,7 @@ const App: React.FC = () => {
                 if (shopView !== 'closed') setShopView('closed');
                 if (isInventoryOpen) setIsInventoryOpen(false);
                 if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); }
+                if (isAdaChatOpen) handleCloseAdaChat();
             } else {
                 const key = e.key.toLowerCase();
                 // Prevent default for movement keys to avoid scrolling the page
@@ -1060,7 +877,7 @@ const App: React.FC = () => {
             if(notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
             if(versionClickTimeoutRef.current) clearTimeout(versionClickTimeoutRef.current);
         };
-    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, teleporterEnabled, handleTeleport, isLiveSessionActive]);
+    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, teleporterEnabled, handleTeleport, isAdaChatOpen, handleCloseAdaChat]);
     
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
@@ -1396,14 +1213,11 @@ const App: React.FC = () => {
                 </div>
             )}
             
-            {isLiveSessionActive && liveNpc && (
-                <LiveConversation
-                    npcName={liveNpc.name!}
-                    history={conversationHistory}
-                    currentUserInput={currentUserInput}
-                    currentModelOutput={currentModelOutput}
-                    status={sessionStatus}
-                    onClose={endLiveConversation}
+            {isAdaChatOpen && (
+                <AdaChat
+                    playerState={playerState}
+                    missions={missions}
+                    onClose={handleCloseAdaChat}
                 />
             )}
             

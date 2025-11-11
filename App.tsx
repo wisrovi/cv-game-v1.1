@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior } from './types';
 import {
@@ -1038,15 +1039,31 @@ const App: React.FC = () => {
                                 <div className="mission-list item-list">
                                     {missions.map(mission => (
                                         <div key={mission.id} className={`list-item mission-item ${mission.status}`} onClick={() => openMissionChat(mission)}>
-                                            <div className="mission-status-icon">
-                                                {mission.status === 'completada' && <CheckIcon />}
-                                                {mission.status === 'bloqueada' && <LockIcon />}
-                                                {mission.status === 'disponible' && <div className="status-dot available"></div>}
+                                            <div className="mission-info">
+                                                <div className="mission-status-icon">
+                                                    {mission.status === 'completada' && <CheckIcon className="icon" />}
+                                                    {mission.status === 'bloqueada' && <LockIcon className="icon" />}
+                                                    {mission.status === 'disponible' && <div className="status-dot available"></div>}
+                                                </div>
+                                                <div className="mission-details">
+                                                    <b>{mission.titulo}</b>
+                                                    <p>{mission.descripcion}</p>
+                                                    {mission.status === 'completada' && <small className="chat-prompt">Haz clic para chatear sobre este proyecto</small>}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <b>{mission.titulo}</b>
-                                                <p>{mission.descripcion}</p>
-                                                 {mission.status === 'completada' && <small className="chat-prompt">Haz clic para chatear sobre este proyecto</small>}
+                                            <div className="mission-rewards">
+                                                <div className="reward-item" title={`${mission.recompensa_monedas} Monedas`}>
+                                                    <CoinIcon className="icon coin-icon" />
+                                                    <span>{mission.recompensa_monedas}</span>
+                                                </div>
+                                                <div className="reward-item" title={`${mission.recompensa_xp} XP`}>
+                                                    <XPIcon className="icon xp-icon" />
+                                                    <span>{mission.recompensa_xp}</span>
+                                                </div>
+                                                <div className="reward-item" title={`${mission.recompensa_gemas} Gemas`}>
+                                                    <GemIcon className="icon" color={mission.color_gema} />
+                                                    <span>{mission.recompensa_gemas}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}

@@ -539,18 +539,77 @@ body {
 
 /* Mission List */
 .mission-list { max-height: 50vh; }
-.mission-item { cursor: default; }
+
+.list-item.mission-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    cursor: default;
+}
 .mission-item.completada { cursor: pointer; transition: background 0.2s; }
 .mission-item.completada:hover { background: rgba(255,255,255,0.05); }
+
+.mission-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-grow: 1;
+    min-width: 0;
+}
+.mission-details {
+    min-width: 0;
+}
+.mission-details b {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mission-details p {
+    font-size: 0.8em;
+    opacity: 0.7;
+    margin-top: 2px;
+}
 .mission-item.bloqueada { color: #888; }
-.mission-item.bloqueada b, .mission-item.bloqueada p { color: #888; }
-.mission-item.disponible b { color: var(--color-available); }
-.mission-item.completada b { color: var(--color-completed); }
-.mission-item .icon { width: 20px; height: 20px; }
-.mission-status-icon { margin-right: 15px; }
-.mission-status-icon .icon { stroke: var(--color-completed); }
+.mission-item.bloqueada .mission-details b, .mission-item.bloqueada .mission-details p { color: #888; }
+.mission-item.disponible .mission-details b { color: var(--color-available); }
+.mission-item.completada .mission-details b { color: var(--color-completed); }
+
+.mission-status-icon {
+    flex-shrink: 0;
+}
+.mission-status-icon .icon {
+    width: 20px;
+    height: 20px;
+    stroke: var(--color-completed);
+}
 .mission-item.bloqueada .icon { stroke: var(--color-locked); }
 .status-dot.available { width: 15px; height: 15px; background-color: var(--color-available); border-radius: 50%; box-shadow: 0 0 10px var(--color-available); }
+
+.mission-rewards {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-shrink: 0;
+}
+.reward-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9em;
+}
+.reward-item .icon {
+    width: 18px;
+    height: 18px;
+}
+.reward-item .coin-icon {
+    stroke: #FFD700;
+    fill: none;
+}
+.reward-item .xp-icon {
+    stroke: var(--xp-color);
+}
 .chat-prompt { font-size: 0.7em; opacity: 0.6; display: block; margin-top: 5px; }
 
 .menu-options { display: flex; flex-direction: column; gap: 15px; align-items: center; padding: 20px 0; }

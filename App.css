@@ -172,6 +172,31 @@ body {
   100% { transform: translateY(0); }
 }
 
+@keyframes player-walk {
+  0%   { transform: translateY(0) rotate(0deg); }
+  25%  { transform: translateY(-4px) rotate(-2deg); }
+  50%  { transform: translateY(0) rotate(0deg); }
+  75%  { transform: translateY(-4px) rotate(2deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+@keyframes player-shadow-walk {
+    0%   { transform: scaleX(1); }
+    25%  { transform: scaleX(0.95); }
+    50%  { transform: scaleX(1); }
+    75%  { transform: scaleX(0.95); }
+    100% { transform: scaleX(1); }
+}
+
+.player.is-moving {
+    animation: player-walk 0.8s ease-in-out infinite;
+}
+
+.player.is-moving .player-shadow {
+    animation: player-shadow-walk 0.8s ease-in-out infinite;
+}
+
+
 /* Player Level Evolution */
 .player-level-1 .player-body {
   background-color: var(--player-color-1);
@@ -303,21 +328,27 @@ body {
 .game-object.object { border-radius: 50%; border: 2px solid white; box-shadow: 0 0 15px var(--object-color), 0 0 25px var(--object-color); animation: pulse 2.5s infinite; }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
+@keyframes coin-spin {
+    from { transform: rotateY(0deg); }
+    to   { transform: rotateY(360deg); }
+}
+
 /* Collectibles */
 .game-object.collectible {
     border-radius: 50%;
-    animation: pulse 2s infinite ease-in-out;
     z-index: 5;
 }
 .collectible.coin {
     background-color: #FFD700;
     box-shadow: 0 0 10px #FFD700, 0 0 15px #FFF;
     border: 1px solid #fff;
+    animation: coin-spin 1.5s linear infinite;
 }
 .collectible.gem {
     border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
     border: 1px solid #fff;
     box-shadow: 0 0 15px currentColor;
+    animation: coin-spin 2s linear infinite;
 }
 
 

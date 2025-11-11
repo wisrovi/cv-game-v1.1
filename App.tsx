@@ -60,6 +60,7 @@ const App: React.FC = () => {
         upgrades: [],
         xpBoost: 1,
         interactionRange: PLAYER_INTERACTION_RANGE,
+        isMoving: false,
     });
 
     const [missions, setMissions] = useState<Mission[]>(initialMissions);
@@ -502,8 +503,9 @@ const App: React.FC = () => {
         
                     let newX = prev.x;
                     let newY = prev.y;
+                    const isMoving = dx !== 0 || dy !== 0;
         
-                    if (dx !== 0 || dy !== 0) {
+                    if (isMoving) {
                         const magnitude = Math.sqrt(dx * dx + dy * dy);
                         const moveX = (dx / magnitude) * prev.speed * deltaTime;
                         const moveY = (dy / magnitude) * prev.speed * deltaTime;
@@ -596,7 +598,7 @@ const App: React.FC = () => {
                          setGameObjects(remainingGameObjects);
                     }
 
-                    return { ...prev, x: newX, y: newY, interactionTarget: closestTarget, ...playerUpdate };
+                    return { ...prev, x: newX, y: newY, interactionTarget: closestTarget, isMoving, ...playerUpdate };
                 });
             }
             gameLoopRef.current = requestAnimationFrame(gameLoop);
@@ -675,7 +677,7 @@ const App: React.FC = () => {
     }
     
     const playerLevelTier = Math.min(3, Math.floor(playerState.level / 5) + 1);
-    const playerClasses = `player player-level-${playerLevelTier} ${teleportPhase !== 'idle' ? `teleport-${teleportPhase}` : ''}`;
+    const playerClasses = `player player-level-${playerLevelTier} ${teleportPhase !== 'idle' ? `teleport-${teleportPhase}` : ''} ${playerState.isMoving ? 'is-moving' : ''}`;
     
     const objectsToRender = gameObjects.filter(obj => {
         if (currentInterior) {

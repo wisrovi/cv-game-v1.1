@@ -252,9 +252,9 @@ const COIN_SIZE = 15;
 const GEM_SIZE = 18;
 const GEM_COLORS = ["#FF5733", "#33FF57", "#3357FF", "#FF33A1", "#F1C40F", "#9B59B6"];
 
-// Helper to check for collisions with existing objects
-const isColliding = (x: number, y: number, width: number, height: number) => {
-    for (const obj of initialGameObjects) {
+// Helper to check for collisions with a given list of objects
+const isColliding = (x: number, y: number, width: number, height: number, objectList: GameObject[]) => {
+    for (const obj of objectList) {
         if (x < obj.x + obj.width && x + width > obj.x && y < obj.y + obj.height && y + height > obj.y) {
             return true;
         }
@@ -262,74 +262,56 @@ const isColliding = (x: number, y: number, width: number, height: number) => {
     return false;
 };
 
-// Generate world coins with improved grid-based distribution
-const NUM_WORLD_COINS = 100;
-const GRID_COLS = 10;
-const GRID_ROWS = 10;
-const CELL_WIDTH = WORLD_WIDTH / GRID_COLS;
-const CELL_HEIGHT = WORLD_HEIGHT / GRID_ROWS;
-let generatedCoinCount = 0;
-
-for (let row = 0; row < GRID_ROWS; row++) {
-    for (let col = 0; col < GRID_COLS; col++) {
-        if (generatedCoinCount >= NUM_WORLD_COINS) break;
-
-        let x, y, colliding;
-        let attempts = 0;
-        const maxAttempts = 20;
-
-        do {
-            // Try to place a coin randomly within the current grid cell
-            const xOffset = Math.random() * (CELL_WIDTH - COIN_SIZE);
-            const yOffset = Math.random() * (CELL_HEIGHT - COIN_SIZE);
-            x = (col * CELL_WIDTH) + xOffset;
-            y = (row * CELL_HEIGHT) + yOffset;
-            
-            colliding = isColliding(x, y, COIN_SIZE, COIN_SIZE);
-            attempts++;
-        } while (colliding && attempts < maxAttempts);
-
-        if (!colliding) {
-            collectibleObjects.push({
-                id: `coin_world_${generatedCoinCount}`,
-                x, y, width: COIN_SIZE, height: COIN_SIZE,
-                type: 'object',
-                collectibleType: 'coin',
-                value: 1,
-            });
-            generatedCoinCount++;
-        }
-    }
-    if (generatedCoinCount >= NUM_WORLD_COINS) break;
-}
-
-// In case some cells were too crowded, add the remainder randomly.
-while (generatedCoinCount < NUM_WORLD_COINS) {
+// Generate world coins
+const NUM_WORLD_COINS = 20;
+for (let i = 0; i < NUM_WORLD_COINS; i++) {
     let x, y, colliding;
-    let attempts = 0;
     const maxAttempts = 100;
+    let attempts = 0;
     
     do {
         x = Math.random() * (WORLD_WIDTH - COIN_SIZE);
         y = Math.random() * (WORLD_HEIGHT - COIN_SIZE);
-        colliding = isColliding(x, y, COIN_SIZE, COIN_SIZE);
+        // Check collision with static objects AND already generated collectibles
+        colliding = isColliding(x, y, COIN_SIZE, COIN_SIZE, [...initialGameObjects, ...collectibleObjects]);
         attempts++;
     } while (colliding && attempts < maxAttempts);
 
     if (!colliding) {
          collectibleObjects.push({
-            id: `coin_world_${generatedCoinCount}`,
+            id: `coin_world_${i}`,
             x, y, width: COIN_SIZE, height: COIN_SIZE,
             type: 'object',
             collectibleType: 'coin',
             value: 1,
         });
-        generatedCoinCount++;
-    } else {
-        break; // Stop if we fail to place coins
     }
 }
 
+// Generate world gems
+const NUM_WORLD_GEMS = 10;
+for (let i = 0; i < NUM_WORLD_GEMS; i++) {
+    let x, y, colliding;
+    const maxAttempts = 100;
+    let attempts = 0;
+    
+    do {
+        x = Math.random() * (WORLD_WIDTH - GEM_SIZE);
+        y = Math.random() * (WORLD_HEIGHT - GEM_SIZE);
+        colliding = isColliding(x, y, GEM_SIZE, GEM_SIZE, [...initialGameObjects, ...collectibleObjects]);
+        attempts++;
+    } while (colliding && attempts < maxAttempts);
+
+    if (!colliding) {
+         collectibleObjects.push({
+            id: `gem_world_${i}`,
+            x, y, width: GEM_SIZE, height: GEM_SIZE,
+            type: 'object',
+            collectibleType: 'gem',
+            gemColor: GEM_COLORS[Math.floor(Math.random() * GEM_COLORS.length)],
+        });
+    }
+}
 
 // Generate interior coins and gems
 interiors.forEach(interior => {

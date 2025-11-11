@@ -35,6 +35,7 @@ export interface PlayerState {
     upgrades: string[];
     xpBoost: number;
     interactionRange: number;
+    isMoving?: boolean;
 }
 
 export interface MissionStep {

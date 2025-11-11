@@ -559,6 +559,19 @@ const App: React.FC = () => {
         localStorage.setItem('teleporterEnabled', String(newSetting));
         showNotification(`Teletransporte ${newSetting ? 'activado' : 'desactivado'}.`);
     };
+    
+    useEffect(() => {
+        if (isCameraSnapping) {
+            // This effect triggers after a re-render where isCameraSnapping is true (i.e., after a teleport).
+            // It waits a moment to ensure the "snapped" camera position has been rendered,
+            // then sets isCameraSnapping back to false so that normal, smooth camera movement can resume.
+            // This is more reliable than a simple setTimeout chain.
+            const timer = setTimeout(() => {
+                setIsCameraSnapping(false);
+            }, 100); 
+            return () => clearTimeout(timer);
+        }
+    }, [isCameraSnapping]);
 
     const handleTeleport = useCallback(() => {
         if(currentInterior) {
@@ -652,7 +665,6 @@ const App: React.FC = () => {
                 setPlayerState(prev => ({ ...prev, x: safeSpot.x, y: safeSpot.y }));
                 setTeleportPhase('in');
                 showNotification(`Teletransportado a ${targetObject.name || 'objetivo'} (${missionPurpose}).`);
-                setTimeout(() => setIsCameraSnapping(false), 50);
             }, 500);
 
             setTimeout(() => {

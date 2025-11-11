@@ -1167,6 +1167,8 @@ const App: React.FC = () => {
                                     <button onClick={handleLoadGame}>Cargar Partida</button>
                                 </div>
 
+                                <p className="game-version" onClick={handleVersionClick}>v{GAME_VERSION}</p>
+
                                 {devOptionsUnlocked && (
                                     <div className="dev-options">
                                         <h4>Opciones de Desarrollador</h4>
@@ -1181,7 +1183,6 @@ const App: React.FC = () => {
                                 )}
 
                                 <button onClick={() => { setIsMenuOpen(false); setMenuView('main'); }} style={{marginTop: '20px'}}>Cerrar</button>
-                                <p className="game-version" onClick={handleVersionClick}>v{GAME_VERSION}</p>
                             </>
                         )}
                         {menuView === 'missions' && (

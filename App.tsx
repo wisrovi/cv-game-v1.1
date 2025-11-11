@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior } from './types';
 import {
@@ -108,20 +109,6 @@ const App: React.FC = () => {
     const gameObjectsRef = useRef(gameObjects);
     gameObjectsRef.current = gameObjects;
     
-    // Load dev settings from localStorage on initial load
-    useEffect(() => {
-        try {
-            const unlocked = localStorage.getItem('devOptionsUnlocked') === 'true';
-            const teleporter = localStorage.getItem('teleporterEnabled') === 'true';
-            setDevOptionsUnlocked(unlocked);
-            if (unlocked) {
-                setTeleporterEnabled(teleporter);
-            }
-        } catch (error) {
-            console.warn("Could not read developer settings from localStorage", error);
-        }
-    }, []);
-
     const showNotification = useCallback((message: string, duration: number = 3000) => {
         setNotification(message);
         if (notificationTimeoutRef.current) {
@@ -131,6 +118,69 @@ const App: React.FC = () => {
             setNotification(null);
         }, duration);
     }, []);
+    
+    // Save/Load Logic
+    const handleSaveGame = useCallback(() => {
+        try {
+            const gameState = {
+                playerState,
+                missions,
+                gameObjects,
+                devOptionsUnlocked,
+                teleporterEnabled,
+            };
+            localStorage.setItem('wisrovi-cv-savegame', JSON.stringify(gameState));
+            showNotification("¡Partida guardada!", 2000);
+        } catch (error) {
+            console.error("Error saving game state:", error);
+            showNotification("Error al guardar la partida.", 2000);
+        }
+    }, [playerState, missions, gameObjects, devOptionsUnlocked, teleporterEnabled, showNotification]);
+
+    const handleLoadGame = useCallback(() => {
+        try {
+            const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame');
+            if (savedStateJSON) {
+                const savedState = JSON.parse(savedStateJSON);
+                if (savedState.playerState && savedState.missions && savedState.gameObjects) {
+                    setPlayerState(savedState.playerState);
+                    setMissions(savedState.missions);
+                    setGameObjects(savedState.gameObjects);
+                    setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
+                    setTeleporterEnabled(savedState.teleporterEnabled || false);
+                    showNotification("¡Partida cargada!", 2000);
+                    setIsMenuOpen(false); // Close menu after loading
+                } else {
+                     showNotification("Los datos guardados son inválidos.", 2000);
+                }
+            } else {
+                showNotification("No se encontró ninguna partida guardada.", 2000);
+            }
+        } catch (error) {
+            console.error("Error loading game state:", error);
+            showNotification("Error al cargar la partida.", 2000);
+        }
+    }, [showNotification]);
+    
+    // Load game state from localStorage on initial load
+    useEffect(() => {
+        try {
+            const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame');
+            if (savedStateJSON) {
+                const savedState = JSON.parse(savedStateJSON);
+                // Basic validation to ensure we're not loading corrupt data
+                if (savedState.playerState && savedState.missions && savedState.gameObjects) {
+                    setPlayerState(savedState.playerState);
+                    setMissions(savedState.missions);
+                    setGameObjects(savedState.gameObjects);
+                    setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
+                    setTeleporterEnabled(savedState.teleporterEnabled || false);
+                }
+            }
+        } catch (error) {
+            console.warn("Could not read saved game from localStorage", error);
+        }
+    }, []); // Empty dependency array ensures this runs only once on mount
 
     const openMissionChat = (mission: Mission) => {
         if (mission.status === 'completada') {
@@ -961,6 +1011,8 @@ const App: React.FC = () => {
                                 <h3>Menú del Juego</h3>
                                 <div className="menu-options">
                                     <button onClick={() => setMenuView('missions')}>Lista de Misiones</button>
+                                    <button onClick={handleSaveGame}>Guardar Partida</button>
+                                    <button onClick={handleLoadGame}>Cargar Partida</button>
                                 </div>
 
                                 {devOptionsUnlocked && (

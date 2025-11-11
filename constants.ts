@@ -10,6 +10,9 @@ export const WORLD_HEIGHT = 1600;
 export const VIEWPORT_WIDTH = 1200;
 export const VIEWPORT_HEIGHT = 800;
 
+export const MINIMAP_SIZE = 180;
+export const MINIMAP_SCALE = MINIMAP_SIZE / (VIEWPORT_WIDTH * 1.2);
+
 
 export const INITIAL_XP_TO_LEVEL_UP = 100;
 export const GAME_VERSION = '1.2.0';

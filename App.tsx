@@ -1,6 +1,9 @@
 
 
 
+
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
 import {
@@ -27,6 +30,8 @@ import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockI
 import MissionChat from './components/MissionChat';
 import SkillTreeDisplay from './components/SkillTreeDisplay';
 import AdaChat from './components/AdaChat';
+import Minimap from './components/Minimap';
+import WorldMap from './components/WorldMap';
 import './App.css';
 
 interface MissionArrowProps {
@@ -77,7 +82,7 @@ const App: React.FC = () => {
     const [shopView, setShopView] = useState<'closed' | 'buy' | 'sell'>('closed');
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [menuView, setMenuView] = useState<'main' | 'missions' | 'skills'>('main');
+    const [menuView, setMenuView] = useState<'main' | 'missions' | 'skills' | 'map'>('main');
     const [showHud, setShowHud] = useState(true);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMission, setChatMission] = useState<Mission | null>(null);
@@ -91,6 +96,7 @@ const App: React.FC = () => {
     const [versionClickCount, setVersionClickCount] = useState(0);
     const [isTeleporting, setIsTeleporting] = useState(false);
     const [teleportPhase, setTeleportPhase] = useState<'idle' | 'out' | 'in'>('idle');
+    const [isCameraSnapping, setIsCameraSnapping] = useState(false);
 
 
     const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -648,9 +654,11 @@ const App: React.FC = () => {
             }, 200);
 
             setTimeout(() => {
+                setIsCameraSnapping(true);
                 setPlayerState(prev => ({ ...prev, x: safeSpot.x, y: safeSpot.y }));
                 setTeleportPhase('in');
                 showNotification(`Teletransportado a ${targetObject.name || 'objetivo'} (${missionPurpose}).`);
+                setTimeout(() => setIsCameraSnapping(false), 50);
             }, 500);
 
             setTimeout(() => {
@@ -940,7 +948,7 @@ const App: React.FC = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="game-world" style={{ 
+                    <div className={`game-world ${isCameraSnapping ? 'no-transition' : ''}`} style={{ 
                         width: WORLD_WIDTH, 
                         height: WORLD_HEIGHT,
                         transform: `translate(${-cameraX}px, ${-cameraY}px)`
@@ -1049,14 +1057,21 @@ const App: React.FC = () => {
                             <p>{activeMission.pasos[activeMission.paso_actual]?.descripcion || "¡Misión completada!"}</p>
                         </div>
                     )}
+                    {!currentInterior && showHud && (
+                        <Minimap
+                            playerState={playerState}
+                            gameObjects={gameObjects}
+                            missionTarget={missionTarget}
+                        />
+                    )}
                 </div>
             </div>
 
-            {showHud && (
+            {showHud && !dialogue && !shopView && !isInventoryOpen && !isMenuOpen && !isChatOpen && !isAdaChatOpen && !currentInterior && (
                <div className="controls-overlay">
                    <div className="hud-box">
                         <h4>Controles</h4>
-                        <p className="controls-text"><b>WASD/Flechas:</b> Mover<br/><b>Espacio:</b> Interactuar<br/><b>I:</b> Inventario / <b>M:</b> Misiones<br/><b>Esc:</b> Cerrar</p>
+                        <p className="controls-text"><b>WASD/Flechas:</b> Mover<br/><b>Espacio:</b> Interactuar<br/><b>I:</b> Inventario / <b>M:</b> Menú<br/><b>Esc:</b> Cerrar</p>
                         <p className="controls-text hint">Pulsa <b>'H'</b> para ocultar la ayuda.</p>
                     </div>
                 </div>
@@ -1141,6 +1156,7 @@ const App: React.FC = () => {
                                 <div className="menu-options">
                                     <button onClick={() => setMenuView('missions')}>Lista de Misiones</button>
                                     <button onClick={() => setMenuView('skills')}>Árbol de Habilidades</button>
+                                    <button onClick={() => setMenuView('map')}>Mapa del Mundo</button>
                                     <button onClick={handleSaveGame}>Guardar Partida</button>
                                     <button onClick={handleLoadGame}>Cargar Partida</button>
                                 </div>
@@ -1205,6 +1221,16 @@ const App: React.FC = () => {
                                 <SkillTreeDisplay 
                                     playerState={playerState}
                                     onUnlockSkill={handleUnlockSkill}
+                                />
+                                <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
+                            </>
+                        )}
+                         {menuView === 'map' && (
+                            <>
+                                <WorldMap 
+                                    gameObjects={gameObjects}
+                                    playerState={playerState}
+                                    missionTarget={missionTarget}
                                 />
                                 <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
                             </>

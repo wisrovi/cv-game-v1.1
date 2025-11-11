@@ -1,5 +1,7 @@
 
 
+
+
 :root {
   --player-color-1: #00aaff;
   --player-color-2: #0077cc;
@@ -54,6 +56,10 @@ body {
   position: relative;
   transition: transform 0.2s linear;
   background-color: #000;
+}
+
+.game-world.no-transition {
+  transition: none;
 }
 
 .background-animated {
@@ -873,3 +879,146 @@ body {
     50% { opacity: 1; }
     100% { opacity: 0; }
 }
+
+
+/* Minimap Styles */
+.minimap-container {
+    width: 180px;
+    height: 180px;
+    background: var(--ui-bg);
+    border: 2px solid var(--ui-border);
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    pointer-events: all;
+    box-shadow: 0 0 15px rgba(0, 170, 255, 0.3);
+}
+
+.minimap-background {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+     background-image:
+    linear-gradient(rgba(0, 170, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 170, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.5;
+}
+
+.minimap-dot {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.minimap-dot.player {
+    width: 8px;
+    height: 8px;
+    background-color: #00ffff;
+    border: 1px solid white;
+    z-index: 10;
+}
+
+.minimap-dot.npc {
+    width: 6px;
+    height: 6px;
+    background-color: var(--npc-color);
+    z-index: 5;
+}
+
+.minimap-dot.mission {
+    width: 10px;
+    height: 10px;
+    background-color: var(--color-available);
+    border: 1px solid white;
+    animation: mission-glow-minimap 1.5s infinite;
+    z-index: 8;
+}
+
+@keyframes mission-glow-minimap {
+    0% { box-shadow: 0 0 5px var(--color-available); }
+    50% { box-shadow: 0 0 15px var(--color-available); }
+    100% { box-shadow: 0 0 5px var(--color-available); }
+}
+
+/* World Map Styles */
+.world-map-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    max-height: 65vh;
+}
+
+.world-map-container {
+    position: relative;
+    background-color: #0c1218;
+    border: 1px solid var(--ui-border);
+    overflow: hidden;
+}
+
+.world-map-object {
+    position: absolute;
+    box-sizing: border-box;
+}
+.world-map-object.building {
+    border: 1px solid #718096;
+}
+.world-map-object.npc {
+    border-radius: 50%;
+}
+.world-map-object.player {
+    border-radius: 50%;
+    border: 1px solid #fff;
+    background-color: #00ffff;
+    z-index: 10;
+    animation: pulse 1s infinite;
+}
+.world-map-object.mission-target {
+    z-index: 9;
+    border: 1px solid #fff;
+    animation: mission-glow 1.5s infinite;
+}
+
+.world-map-object-tooltip {
+    visibility: hidden;
+    background-color: var(--ui-bg);
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 8px;
+    position: absolute;
+    z-index: 15;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.8em;
+    white-space: nowrap;
+}
+
+.world-map-object:hover .world-map-object-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.world-map-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.8em;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.5);
+}
+.legend-swatch.player { background-color: #00ffff; }
+.legend-swatch.npc { background-color: var(--npc-color); }
+.legend-swatch.mission { background-color: var(--color-available); }

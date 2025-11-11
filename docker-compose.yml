@@ -2,11 +2,8 @@ version: '3.8'
 
 services:
   app:
-    build:
-      context: .
-      args:
-        GEMINI_API_KEY: AIzaSyB2Ny-uqnwANVOXAXS3cT-U1AZ3bvldKAU
+    build: .
     ports:
       - "5810:4173"
     environment:
-      - GEMINI_API_KEY=AIzaSyB2Ny-uqnwANVOXAXS3cT-U1AZ3bvldKAU
+      - GEMINI_API_KEY=${GEMINI_API_KEY}

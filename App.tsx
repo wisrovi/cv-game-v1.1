@@ -21,7 +21,7 @@ import {
   COLLECTIBLE_RESPAWN_TIME,
   skillTree,
 } from './constants';
-import { generateNpcDialogue, generateAdaChatResponse } from './services/geminiService';
+import { generateNpcDialogue } from './services/geminiService';
 import { playSound, soundLibrary } from './services/audioService';
 import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockIcon } from './components/Icons';
 import MissionChat from './components/MissionChat';
@@ -30,6 +30,7 @@ import AdaChat from './components/AdaChat';
 import Minimap from './components/Minimap';
 import WorldMap from './components/WorldMap';
 import DeployPuzzle from './components/DeployPuzzle';
+import ImageGenerator from './components/ImageGenerator';
 import './App.css';
 
 interface MissionArrowProps {
@@ -90,6 +91,7 @@ const App: React.FC = () => {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMission, setChatMission] = useState<Mission | null>(null);
     const [isAdaChatOpen, setIsAdaChatOpen] = useState(false);
+    const [isImageGeneratorOpen, setIsImageGeneratorOpen] = useState(false);
     const [currentInterior, setCurrentInterior] = useState<Interior | null>(null);
     const [poppingCollectibles, setPoppingCollectibles] = useState<GameObject[]>([]);
     const [viewportSize, setViewportSize] = useState({ width: BASE_VIEWPORT_WIDTH, height: BASE_VIEWPORT_HEIGHT });
@@ -110,7 +112,7 @@ const App: React.FC = () => {
     const notificationTimeoutRef = useRef<number | null>(null);
     const versionClickTimeoutRef = useRef<number | null>(null);
     
-    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive;
+    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen;
     const isPausedRef = useRef(isGamePaused);
     isPausedRef.current = isGamePaused;
     
@@ -395,6 +397,12 @@ const App: React.FC = () => {
         if (target.id === 'npc_ada') {
             setIsAdaChatOpen(true);
             playSound('DIALOGUE_START');
+            return;
+        }
+
+        if (target.id === 'npc_vincent') {
+            setIsImageGeneratorOpen(true);
+            playSound('UI_CLICK');
             return;
         }
         
@@ -923,7 +931,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (isChatOpen || isAdaChatOpen) return;
+            if (isChatOpen || isAdaChatOpen || isImageGeneratorOpen) return;
             
             if (e.key === 'Escape') {
                 let didCloseSomething = false;
@@ -933,6 +941,7 @@ const App: React.FC = () => {
                 else if (isInventoryOpen) { setIsInventoryOpen(false); didCloseSomething = true; }
                 else if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); didCloseSomething = true; }
                 else if (isAdaChatOpen) { handleCloseAdaChat(); didCloseSomething = true; }
+                else if (isImageGeneratorOpen) { setIsImageGeneratorOpen(false); didCloseSomething = true; }
 
                 if (didCloseSomething) {
                     playSound('UI_CLICK');
@@ -981,7 +990,7 @@ const App: React.FC = () => {
             if(notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
             if(versionClickTimeoutRef.current) clearTimeout(versionClickTimeoutRef.current);
         };
-    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused]);
+    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, isImageGeneratorOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused]);
     
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
@@ -1164,7 +1173,7 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {showHud && !dialogue && !shopView && !isInventoryOpen && !isMenuOpen && !isChatOpen && !isAdaChatOpen && !currentInterior && (
+            {showHud && !isGamePaused && !currentInterior && (
                <div className="controls-overlay">
                    <div className="hud-box">
                         <h4>Controles</h4>
@@ -1351,6 +1360,12 @@ const App: React.FC = () => {
                 <DeployPuzzle
                     onComplete={handlePuzzleComplete}
                     onClose={() => { setIsPuzzleActive(false); playSound('UI_CLICK'); }}
+                />
+            )}
+
+            {isImageGeneratorOpen && (
+                <ImageGenerator 
+                    onClose={() => { setIsImageGeneratorOpen(false); playSound('UI_CLICK'); }}
                 />
             )}
 

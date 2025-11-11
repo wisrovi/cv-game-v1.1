@@ -326,6 +326,9 @@ body {
 #npc_vendor .npc-body::before { content:''; position: absolute; top:-15px; left:-10px; right:-10px; height:20px; background: repeating-linear-gradient(45deg, #eee, #eee 10px, #ccc 10px, #ccc 20px); border-radius: 5px; }
 #npc_vendor .npc-head { display: none; }
 
+#npc_vincent .npc-body { background: #5a189a; border-radius: 20% 20% 5px 5px; height: 80%; }
+#npc_vincent .npc-head { background: #e0aaff; }
+#npc_vincent .npc-head::after { content: ''; position: absolute; top: -10%; left: 20%; width: 60%; height: 40%; background: #3c096c; border-radius: 50% 50% 0 0; } /* Beret */
 
 @keyframes npc-idle { 0% { transform: translateY(0); } 50% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
 
@@ -1125,4 +1128,52 @@ body {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* Image Generator Styles */
+.image-generator-box {
+    max-width: 600px;
+}
+.image-generator-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.image-display-area {
+    width: 100%;
+    height: 400px;
+    background-color: rgba(0,0,0,0.3);
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+.image-display-area img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.image-display-area p {
+    padding: 20px;
+    text-align: center;
+    opacity: 0.7;
+}
+.image-generator-error {
+    color: #ff6b6b;
+}
+
+.loading-spinner {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid var(--xp-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

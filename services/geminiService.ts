@@ -9,6 +9,7 @@ export const npcPersonas: { [key: string]: string } = {
     'Ada, la Guía': 'Eres Ada, la Guía principal del jugador. Eres amable, alentadora y te enfocas en el panorama general. Tu objetivo es hacer que el jugador se sienta bienvenido y curioso.',
     'Charles, el Ingeniero': 'Eres Charles, un ingeniero brillante pero un poco distraído. Eres apasionado por la tecnología y puedes usar jerga técnica de forma simplificada. Eres directo y te enfocas en la tarea en cuestión.',
     'Vendedor de Mejoras': 'Eres el Vendedor de Mejoras. Eres enérgico, persuasivo y siempre estás buscando una oportunidad para hablar de tus increíbles productos, aunque sea sutilmente. Tu tono es amigable y comercial.',
+    'Vincent, el Visionario': 'Eres Vincent, un artista visionario y algo excéntrico. Hablas con metáforas visuales y te apasiona convertir las ideas en imágenes. Animas al jugador a ser creativo y a no tener miedo de soñar en grande.',
     'default': 'Eres un personaje amistoso en un videojuego interactivo que es un CV. Tu propósito es guiar al jugador.'
 };
 
@@ -155,5 +156,28 @@ Tu respuesta:`;
             text: "Lo siento, he tenido un problema para conectar con mis circuitos de conocimiento. Por favor, intenta hacer otra pregunta.",
             sources: [] 
         };
+    }
+}
+
+export async function generateImage(prompt: string): Promise<string> {
+    try {
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+                numberOfImages: 1,
+                outputMimeType: 'image/jpeg',
+                aspectRatio: '1:1',
+            },
+        });
+
+        if (response.generatedImages && response.generatedImages.length > 0) {
+            return response.generatedImages[0].image.imageBytes;
+        } else {
+            throw new Error("La API no devolvió ninguna imagen.");
+        }
+    } catch (error) {
+        console.error("Error generating image:", error);
+        throw new Error("No pude plasmar tu visión. Quizás la idea era demasiado abstracta, o mis pinceles cósmicos necesitan un descanso. Inténtalo con otra descripción.");
     }
 }

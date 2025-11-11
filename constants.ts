@@ -94,6 +94,7 @@ const initialGameObjects: GameObject[] = [
   { id: 'npc_ada', x: 1150, y: 1450, width: 30, height: 45, type: 'npc', name: 'Ada, la Guía', color: '#AD1AAD', missionId: 1 },
   { id: 'npc_charles', x: 2100, y: 350, width: 30, height: 45, type: 'npc', name: 'Charles, el Ingeniero', color: '#D55E00', missionId: 2 },
   { id: 'npc_vendor', x: 1300, y: 1250, width: 40, height: 50, type: 'npc', name: 'Vendedor de Mejoras', color: '#0072B2' },
+  { id: 'npc_vincent', x: 1850, y: 700, width: 30, height: 45, type: 'npc', name: 'Vincent, el Visionario', color: '#5a189a' },
 
   // Buildings (Projects)
   { id: 'wiliutils_building', x: 200, y: 200, width: 250, height: 150, type: 'building', name: 'Campus Visión (wiliutils)', color: '#009E73', door: { x: 110, y: 120, width: 30, height: 30 } },

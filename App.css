@@ -1017,3 +1017,112 @@ body {
 .legend-swatch.player { background-color: #00ffff; }
 .legend-swatch.npc { background-color: var(--npc-color); }
 .legend-swatch.mission { background-color: var(--color-available); }
+
+/* Deploy Puzzle Minigame */
+.puzzle-box {
+    max-width: 800px;
+    text-align: center;
+}
+
+.puzzle-container {
+    position: relative;
+    width: 700px;
+    height: 300px;
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    margin: 20px auto;
+    border: 1px solid var(--ui-border);
+}
+
+.puzzle-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.puzzle-line {
+    stroke: #666;
+    stroke-width: 3;
+    stroke-dasharray: 5, 5;
+    animation: dash-flow 1s linear infinite;
+}
+
+.puzzle-line.solved-path {
+    stroke: var(--xp-color);
+    stroke-width: 5;
+    animation: dash-flow-fast 0.5s linear infinite;
+}
+
+@keyframes dash-flow {
+    from { stroke-dashoffset: 10; }
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes dash-flow-fast {
+    from { stroke-dashoffset: 20; }
+    to { stroke-dashoffset: 0; }
+}
+
+.puzzle-node {
+    position: absolute;
+    width: 120px;
+    height: 60px;
+    background: var(--interior-wall);
+    border: 2px solid var(--ui-border);
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-size: 0.9em;
+    padding: 5px;
+    box-sizing: border-box;
+    text-align: center;
+    user-select: none;
+}
+
+.puzzle-node:hover {
+    transform: scale(1.05);
+    border-color: #fff;
+}
+
+.puzzle-node.node-start {
+    background-color: #1a535c;
+    border-color: #4ecdc4;
+}
+.puzzle-node.node-end {
+    background-color: #723d46;
+    border-color: #ff6b6b;
+}
+
+.puzzle-node.selected {
+    border-color: var(--color-available);
+    box-shadow: 0 0 15px var(--color-available);
+    transform: scale(1.1);
+}
+
+.puzzle-node.solved-path {
+    border-color: var(--xp-color);
+    box-shadow: 0 0 15px var(--xp-color);
+    background: rgba(0, 255, 170, 0.1);
+}
+
+.puzzle-solved-message {
+    margin-top: 20px;
+    animation: fadeIn 0.5s ease-in;
+}
+
+.puzzle-solved-message h4 {
+    color: var(--xp-color);
+    font-size: 1.5em;
+    margin: 0 0 10px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

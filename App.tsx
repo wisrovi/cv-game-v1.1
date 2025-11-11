@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
 import {
@@ -28,6 +29,7 @@ import SkillTreeDisplay from './components/SkillTreeDisplay';
 import AdaChat from './components/AdaChat';
 import Minimap from './components/Minimap';
 import WorldMap from './components/WorldMap';
+import DeployPuzzle from './components/DeployPuzzle';
 import './App.css';
 
 interface MissionArrowProps {
@@ -97,6 +99,7 @@ const App: React.FC = () => {
     const [teleporterEnabled, setTeleporterEnabled] = useState(false);
     const [versionClickCount, setVersionClickCount] = useState(0);
     const [isTeleporting, setIsTeleporting] = useState(false);
+    const [isPuzzleActive, setIsPuzzleActive] = useState(false);
     const [teleportPhase, setTeleportPhase] = useState<'idle' | 'out' | 'in'>('idle');
     const [isCameraSnapping, setIsCameraSnapping] = useState(false);
 
@@ -107,7 +110,7 @@ const App: React.FC = () => {
     const notificationTimeoutRef = useRef<number | null>(null);
     const versionClickTimeoutRef = useRef<number | null>(null);
     
-    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen;
+    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive;
     const isPausedRef = useRef(isGamePaused);
     isPausedRef.current = isGamePaused;
     
@@ -236,6 +239,20 @@ const App: React.FC = () => {
         }
     }, [missions, advanceMissionStep]);
     
+    const handlePuzzleComplete = useCallback(() => {
+        setIsPuzzleActive(false);
+        const wdeployMissionId = 10;
+        const wdeployMission = missions.find(m => m.id === wdeployMissionId);
+        
+        // Ensure the mission is actually active before advancing
+        if (wdeployMission && wdeployMission.status === 'disponible') {
+            const currentStep = wdeployMission.pasos[wdeployMission.paso_actual];
+            if (currentStep && currentStep.tipo === 'interactuar' && currentStep.objetoId === 'deployment_script') {
+                 advanceMissionStep(wdeployMissionId);
+            }
+        }
+    }, [missions, advanceMissionStep]);
+
     // Save/Load Logic
     const handleSaveGame = useCallback(() => {
         playSound('UI_CLICK');
@@ -422,6 +439,12 @@ const App: React.FC = () => {
         let actionTaken = false;
 
         if (currentStep.tipo === 'interactuar' && currentStep.objetoId === target.id) {
+            if (target.id === 'deployment_script' && activeMission.id === 10) {
+                setIsPuzzleActive(true);
+                playSound('UI_CLICK');
+                return;
+            }
+            
             if (target.type === 'npc') {
                 setDialogue({ npcName: target.name!, text: "Generando diálogo...", missionContent: activeMission.contenido_educativo });
                 playSound('DIALOGUE_START');
@@ -902,6 +925,22 @@ const App: React.FC = () => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (isChatOpen || isAdaChatOpen) return;
             
+            if (e.key === 'Escape') {
+                let didCloseSomething = false;
+                if (isPuzzleActive) { setIsPuzzleActive(false); didCloseSomething = true; }
+                else if (dialogue) { setDialogue(null); didCloseSomething = true; }
+                else if (shopView !== 'closed') { setShopView('closed'); didCloseSomething = true; }
+                else if (isInventoryOpen) { setIsInventoryOpen(false); didCloseSomething = true; }
+                else if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); didCloseSomething = true; }
+                else if (isAdaChatOpen) { handleCloseAdaChat(); didCloseSomething = true; }
+
+                if (didCloseSomething) {
+                    playSound('UI_CLICK');
+                }
+            }
+            
+            if (isGamePaused) return;
+
             if (e.key === ' ') {
                 e.preventDefault();
                 handleInteraction();
@@ -919,17 +958,6 @@ const App: React.FC = () => {
                 setIsMenuOpen(true);
                 setMenuView('main');
                 playSound('UI_CLICK');
-            } else if (e.key === 'Escape') {
-                let didCloseSomething = false;
-                if (dialogue) { setDialogue(null); didCloseSomething = true; }
-                if (shopView !== 'closed') { setShopView('closed'); didCloseSomething = true; }
-                if (isInventoryOpen) { setIsInventoryOpen(false); didCloseSomething = true; }
-                if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); didCloseSomething = true; }
-                if (isAdaChatOpen) { handleCloseAdaChat(); didCloseSomething = true; }
-
-                if (didCloseSomething) {
-                    playSound('UI_CLICK');
-                }
             } else {
                 const key = e.key.toLowerCase();
                 // Prevent default for movement keys to avoid scrolling the page
@@ -953,7 +981,7 @@ const App: React.FC = () => {
             if(notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
             if(versionClickTimeoutRef.current) clearTimeout(versionClickTimeoutRef.current);
         };
-    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, teleporterEnabled, handleTeleport, isAdaChatOpen, handleCloseAdaChat]);
+    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused]);
     
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
@@ -1319,6 +1347,13 @@ const App: React.FC = () => {
             
             {isChatOpen && chatMission && <MissionChat mission={chatMission} onClose={() => { setIsChatOpen(false); playSound('UI_CLICK'); }} />}
             
+            {isPuzzleActive && (
+                <DeployPuzzle
+                    onComplete={handlePuzzleComplete}
+                    onClose={() => { setIsPuzzleActive(false); playSound('UI_CLICK'); }}
+                />
+            )}
+
             {notification && <div className="notification">{notification}</div>}
         </div>
     );

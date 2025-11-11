@@ -1,4 +1,4 @@
-import { Mission, GameObject, ShopItem, Interior } from './types';
+import { Mission, GameObject, ShopItem, Interior, Skill } from './types';
 
 export const PLAYER_INITIAL_SPEED = 180; // pixels per second
 export const PLAYER_INTERACTION_RANGE = 50;
@@ -15,6 +15,77 @@ export const INITIAL_XP_TO_LEVEL_UP = 100;
 export const GAME_VERSION = '1.2.0';
 export const GEM_SELL_VALUE = 50;
 export const COLLECTIBLE_RESPAWN_TIME = 30000; // 30 seconds
+
+export const skillTree: Skill[] = [
+    // Tier 1
+    {
+        id: 'agile_explorer_1',
+        name: 'Explorador Ágil I',
+        description: 'Aumenta permanentemente la velocidad de movimiento en un 10%.',
+        cost: { coins: 150 },
+        requiredLevel: 2,
+        effect: { type: 'SPEED_BOOST_PERCENT', value: 0.10 },
+        icon: 'speed',
+        tier: 1,
+    },
+    {
+        id: 'treasure_hunter_1',
+        name: 'Cazatesoros I',
+        description: 'Aumenta las monedas obtenidas de misiones y recolección en un 15%.',
+        cost: { coins: 100, gems: { '#00aaff': 1 } },
+        requiredLevel: 3,
+        effect: { type: 'COIN_GAIN_PERCENT', value: 0.15 },
+        icon: 'coin',
+        tier: 1,
+    },
+    // Tier 2
+    {
+        id: 'agile_explorer_2',
+        name: 'Explorador Ágil II',
+        description: 'Aumenta la velocidad de movimiento en un 15% adicional.',
+        cost: { coins: 300, gems: { '#2ecc71': 2 } },
+        requiredLevel: 5,
+        requiredSkillId: 'agile_explorer_1',
+        effect: { type: 'SPEED_BOOST_PERCENT', value: 0.15 },
+        icon: 'speed',
+        tier: 2,
+    },
+    {
+        id: 'gemstone_affinity_1',
+        name: 'Afinidad con Gemas',
+        description: 'Otorga un 25% de probabilidad de encontrar una gema extra al recoger una.',
+        cost: { coins: 250, gems: { '#f1c40f': 3 } },
+        requiredLevel: 6,
+        requiredSkillId: 'treasure_hunter_1',
+        effect: { type: 'GEM_FIND_CHANCE', value: 0.25 },
+        icon: 'gem',
+        tier: 2,
+    },
+     // Tier 3
+    {
+        id: 'master_learner',
+        name: 'Maestro del Aprendizaje',
+        description: 'Aumenta toda la experiencia (XP) ganada en un 20%.',
+        cost: { coins: 500, gems: { '#e74c3c': 2 } },
+        requiredLevel: 8,
+        requiredSkillId: 'agile_explorer_2',
+        effect: { type: 'XP_GAIN_PERCENT', value: 0.20 },
+        icon: 'xp',
+        tier: 3,
+    },
+    {
+        id: 'master_scavenger',
+        name: 'Maestro Carroñero',
+        description: 'Aumenta permanentemente las monedas obtenidas en un 30% adicional.',
+        cost: { coins: 600, gems: { '#9b59b6': 2 } },
+        requiredLevel: 10,
+        requiredSkillId: 'gemstone_affinity_1',
+        effect: { type: 'COIN_GAIN_PERCENT', value: 0.30 },
+        icon: 'coin',
+        tier: 3,
+    }
+];
+
 
 const initialGameObjects: GameObject[] = [
   // NPCs

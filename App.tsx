@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior } from './types';
+import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
 import {
   gameObjects as initialGameObjects,
   missions as initialMissions,
@@ -18,11 +18,13 @@ import {
   VIEWPORT_HEIGHT,
   GAME_VERSION,
   GEM_SELL_VALUE,
-  COLLECTIBLE_RESPAWN_TIME
+  COLLECTIBLE_RESPAWN_TIME,
+  skillTree,
 } from './constants';
 import { generateNpcDialogue } from './services/geminiService';
 import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockIcon } from './components/Icons';
 import MissionChat from './components/MissionChat';
+import SkillTreeDisplay from './components/SkillTreeDisplay';
 import './App.css';
 
 interface MissionArrowProps {
@@ -62,6 +64,7 @@ const App: React.FC = () => {
         upgrades: [],
         xpBoost: 1,
         interactionRange: PLAYER_INTERACTION_RANGE,
+        unlockedSkills: [],
         isMoving: false,
     });
 
@@ -72,7 +75,7 @@ const App: React.FC = () => {
     const [shopView, setShopView] = useState<'closed' | 'buy' | 'sell'>('closed');
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [menuView, setMenuView] = useState<'main' | 'missions'>('main');
+    const [menuView, setMenuView] = useState<'main' | 'missions' | 'skills'>('main');
     const [showHud, setShowHud] = useState(true);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMission, setChatMission] = useState<Mission | null>(null);
@@ -144,7 +147,10 @@ const App: React.FC = () => {
             if (savedStateJSON) {
                 const savedState = JSON.parse(savedStateJSON);
                 if (savedState.playerState && savedState.missions && savedState.gameObjects) {
-                    setPlayerState(savedState.playerState);
+                    setPlayerState({
+                        ...savedState.playerState,
+                        unlockedSkills: savedState.playerState.unlockedSkills || []
+                    });
                     setMissions(savedState.missions);
                     setGameObjects(savedState.gameObjects);
                     setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
@@ -171,7 +177,10 @@ const App: React.FC = () => {
                 const savedState = JSON.parse(savedStateJSON);
                 // Basic validation to ensure we're not loading corrupt data
                 if (savedState.playerState && savedState.missions && savedState.gameObjects) {
-                    setPlayerState(savedState.playerState);
+                     setPlayerState({
+                        ...savedState.playerState,
+                        unlockedSkills: savedState.playerState.unlockedSkills || []
+                    });
                     setMissions(savedState.missions);
                     setGameObjects(savedState.gameObjects);
                     setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
@@ -229,6 +238,15 @@ const App: React.FC = () => {
         if (isCompletingMission) {
             showNotification(`¡Misión "${mission.titulo}" completada!`);
             setPlayerState(p => {
+                 const coinGainMultiplier = p.unlockedSkills.reduce((multiplier, skillId) => {
+                    const skill = skillTree.find(s => s.id === skillId);
+                    if (skill?.effect.type === 'COIN_GAIN_PERCENT') {
+                        return multiplier * (1 + skill.effect.value);
+                    }
+                    return multiplier;
+                }, 1);
+                const finalCoinReward = Math.round(mission.recompensa_monedas * coinGainMultiplier);
+
                  const newGems = { ...p.gems, [mission.color_gema]: (p.gems[mission.color_gema] || 0) + mission.recompensa_gemas };
                  let newXp = p.xp + mission.recompensa_xp * p.xpBoost;
                  const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, p.level - 1);
@@ -238,7 +256,7 @@ const App: React.FC = () => {
                      newXp -= xpToLevelUp;
                      showNotification(`¡Subiste de nivel! Nivel ${newLevel}`);
                  }
-                 return { ...p, coins: p.coins + mission.recompensa_monedas, xp: newXp, level: newLevel, gems: newGems };
+                 return { ...p, coins: p.coins + finalCoinReward, xp: newXp, level: newLevel, gems: newGems };
             });
             
             setMissions(prevMissions => {
@@ -274,7 +292,7 @@ const App: React.FC = () => {
                 return m;
             }));
         }
-    }, [missions, playerState.xpBoost, showNotification]);
+    }, [missions, showNotification]);
 
     const handleInteraction = useCallback(async () => {
         if (dialogue) { setDialogue(null); return; }
@@ -347,7 +365,15 @@ const App: React.FC = () => {
         if (currentStep.tipo === 'interactuar' && currentStep.objetoId === target.id) {
             if (target.type === 'npc') {
                 setDialogue({ npcName: target.name!, text: "Generando diálogo...", missionContent: activeMission.contenido_educativo });
-                const generatedText = await generateNpcDialogue(target.name!, activeMission);
+                
+                const upgradeNames = playerState.upgrades.map(upgradeId => {
+                    const item = shopItems.find(si => si.id === upgradeId);
+                    return item ? item.name : '';
+                }).filter(name => name);
+    
+                const inventorySummary = playerState.inventory.map(item => item.name);
+                
+                const generatedText = await generateNpcDialogue(target.name!, activeMission, upgradeNames, inventorySummary);
                 setDialogue({ npcName: target.name!, text: generatedText, missionContent: activeMission.contenido_educativo });
             }
             actionTaken = true;
@@ -382,7 +408,7 @@ const App: React.FC = () => {
         if (actionTaken) {
             advanceMissionStep(activeMission.id);
         }
-    }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior]);
+    }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior, gameObjects]);
 
     const buyShopItem = (item: ShopItem) => {
         if (playerState.coins >= item.cost && !playerState.upgrades.includes(item.id)) {
@@ -425,6 +451,69 @@ const App: React.FC = () => {
             });
             showNotification(`¡Has vendido una gema por ${GEM_SELL_VALUE} monedas!`);
         }
+    };
+    
+    const handleUnlockSkill = (skillId: string) => {
+        const skill = skillTree.find(s => s.id === skillId);
+        if (!skill) return;
+    
+        if (playerState.unlockedSkills.includes(skill.id)) {
+            showNotification("Ya has desbloqueado esta habilidad.");
+            return;
+        }
+        if (skill.requiredSkillId && !playerState.unlockedSkills.includes(skill.requiredSkillId)) {
+            showNotification("Necesitas desbloquear la habilidad anterior primero.");
+            return;
+        }
+        if (playerState.level < skill.requiredLevel) {
+            showNotification(`Necesitas ser nivel ${skill.requiredLevel} para desbloquear esto.`);
+            return;
+        }
+        if (skill.cost.coins && playerState.coins < skill.cost.coins) {
+            showNotification("No tienes suficientes monedas.");
+            return;
+        }
+        if (skill.cost.gems) {
+            for (const color in skill.cost.gems) {
+                if ((playerState.gems[color] || 0) < skill.cost.gems[color]) {
+                    showNotification("No tienes suficientes gemas de ese color.");
+                    return;
+                }
+            }
+        }
+    
+        setPlayerState(prev => {
+            const newCoins = prev.coins - (skill.cost.coins || 0);
+            const newGems = { ...prev.gems };
+            if (skill.cost.gems) {
+                for (const color in skill.cost.gems) {
+                    newGems[color] -= skill.cost.gems[color];
+                }
+            }
+            
+            const newUnlockedSkills = [...prev.unlockedSkills, skill.id];
+    
+            let newSpeed = PLAYER_INITIAL_SPEED;
+            let newXpBoost = 1;
+            
+            prev.upgrades.forEach(upgradeId => {
+                const item = shopItems.find(i => i.id === upgradeId);
+                if(item) {
+                     if (item.effect.type === 'SPEED_BOOST') newSpeed *= item.effect.value;
+                     if (item.effect.type === 'XP_BOOST') newXpBoost *= item.effect.value;
+                }
+            });
+    
+            newUnlockedSkills.forEach(unlockedSkillId => {
+                const s = skillTree.find(sk => sk.id === unlockedSkillId);
+                if (s?.effect.type === 'SPEED_BOOST_PERCENT') newSpeed *= (1 + s.effect.value);
+                if (s?.effect.type === 'XP_GAIN_PERCENT') newXpBoost *= (1 + s.effect.value);
+            });
+            
+            return { ...prev, coins: newCoins, gems: newGems, unlockedSkills: newUnlockedSkills, speed: newSpeed, xpBoost: newXpBoost };
+        });
+    
+        showNotification(`Habilidad Desbloqueada: ${skill.name}!`);
     };
 
     const handleVersionClick = () => {
@@ -669,6 +758,31 @@ const App: React.FC = () => {
                     });
                     
                     if (collectedThisFrame.length > 0) {
+                        const coinGainMultiplier = prev.unlockedSkills.reduce((multiplier, skillId) => {
+                            const skill = skillTree.find(s => s.id === skillId);
+                            if (skill?.effect.type === 'COIN_GAIN_PERCENT') {
+                                return multiplier * (1 + skill.effect.value);
+                            }
+                            return multiplier;
+                        }, 1);
+                        const finalCoinsGained = Math.round(coinsGained * coinGainMultiplier);
+
+                        const gemFindChance = prev.unlockedSkills.reduce((chance, skillId) => {
+                            const skill = skillTree.find(s => s.id === skillId);
+                            if (skill?.effect.type === 'GEM_FIND_CHANCE') {
+                                return Math.max(chance, skill.effect.value);
+                            }
+                            return chance;
+                        }, 0);
+
+                        Object.entries(gemsGained).forEach(([color, amount]) => {
+                            for (let i = 0; i < amount; i++) {
+                                if (Math.random() < gemFindChance) {
+                                    gemsGained[color]++;
+                                }
+                            }
+                        });
+
                          setGameObjects(remainingGameObjects);
                          setPoppingCollectibles(prevPopping => [...prevPopping, ...collectedThisFrame]);
                          collectedThisFrame.forEach(obj => {
@@ -677,7 +791,7 @@ const App: React.FC = () => {
                             }, 500);
                          });
 
-                         if (coinsGained > 0) showNotification(`+${coinsGained} moneda!`, 1000);
+                         if (finalCoinsGained > 0) showNotification(`+${finalCoinsGained} moneda!`, 1000);
                          const numGems = Object.values(gemsGained).reduce((a, b) => a + b, 0);
                          if (numGems > 0) showNotification(`+${numGems} gema!`, 1000);
 
@@ -685,7 +799,7 @@ const App: React.FC = () => {
                          Object.entries(gemsGained).forEach(([color, amount]) => {
                              newGems[color] = (newGems[color] || 0) + amount;
                          });
-                         playerUpdate = { coins: prev.coins + coinsGained, gems: newGems };
+                         playerUpdate = { coins: prev.coins + finalCoinsGained, gems: newGems };
                     }
 
                     return { ...prev, x: newX, y: newY, interactionTarget: closestTarget, isMoving, ...playerUpdate };
@@ -718,7 +832,7 @@ const App: React.FC = () => {
                 setShowHud(prev => !prev);
             } else if (e.key.toLowerCase() === 'm') {
                 setIsMenuOpen(true);
-                setMenuView('missions');
+                setMenuView('main');
             } else if (e.key === 'Escape') {
                 if (dialogue) setDialogue(null);
                 if (shopView !== 'closed') setShopView('closed');
@@ -895,7 +1009,7 @@ const App: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                    <button className="hud-button" onClick={() => setIsMenuOpen(true)} aria-label="Abrir menú">
+                    <button className="hud-button" onClick={() => { setIsMenuOpen(true); setMenuView('main'); }} aria-label="Abrir menú">
                         <SettingsIcon />
                     </button>
                 </div>
@@ -1012,6 +1126,7 @@ const App: React.FC = () => {
                                 <h3>Menú del Juego</h3>
                                 <div className="menu-options">
                                     <button onClick={() => setMenuView('missions')}>Lista de Misiones</button>
+                                    <button onClick={() => setMenuView('skills')}>Árbol de Habilidades</button>
                                     <button onClick={handleSaveGame}>Guardar Partida</button>
                                     <button onClick={handleLoadGame}>Cargar Partida</button>
                                 </div>
@@ -1068,6 +1183,15 @@ const App: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
+                                <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
+                            </>
+                        )}
+                        {menuView === 'skills' && (
+                            <>
+                                <SkillTreeDisplay 
+                                    playerState={playerState}
+                                    onUnlockSkill={handleUnlockSkill}
+                                />
                                 <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
                             </>
                         )}

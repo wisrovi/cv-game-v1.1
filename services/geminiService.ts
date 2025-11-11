@@ -11,10 +11,23 @@ const npcPersonas: { [key: string]: string } = {
 };
 
 
-export async function generateNpcDialogue(npcName: string, mission: Mission): Promise<string> {
+export async function generateNpcDialogue(
+  npcName: string, 
+  mission: Mission,
+  playerUpgrades: string[],
+  playerInventory: string[]
+): Promise<string> {
   try {
     const persona = npcPersonas[npcName] || npcPersonas['default'];
     const missionContent = mission.contenido_educativo;
+
+    let playerContext = '';
+    if (playerUpgrades.length > 0) {
+        playerContext += `El jugador tiene las siguientes mejoras activas: ${playerUpgrades.join(', ')}.\n`;
+    }
+    if (playerInventory.length > 0) {
+        playerContext += `El jugador lleva estos objetos clave en su inventario: ${playerInventory.join(', ')}.\n`;
+    }
 
     const prompt = `Eres un personaje en un videojuego de CV interactivo. Tu nombre es ${npcName}.
 
@@ -26,6 +39,8 @@ El jugador está trabajando en la misión llamada "${mission.titulo}". Tienes qu
 
 **Concepto a Explicar:**
 "${missionContent}"
+
+${playerContext ? `**Contexto Adicional del Jugador:**\n${playerContext}Si es relevante y natural para tu personalidad, puedes hacer un comentario sutil sobre alguna de sus mejoras (ej. su velocidad, "¡Qué rápido te mueves!") o un objeto que lleven. ¡No lo fuerces si no encaja con la conversación principal!` : ''}
 
 **Tu Tarea:**
 Genera un diálogo corto y atractivo (2-3 frases).

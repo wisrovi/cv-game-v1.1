@@ -35,6 +35,7 @@ export interface PlayerState {
     upgrades: string[];
     xpBoost: number;
     interactionRange: number;
+    unlockedSkills: string[];
     isMoving?: boolean;
 }
 
@@ -92,4 +93,26 @@ export interface Interior {
     width: number;
     height: number;
     exit: { x: number; y: number; width: number; height: number; };
+}
+
+export interface SkillEffect {
+    type: 'SPEED_BOOST_PERCENT' | 'COIN_GAIN_PERCENT' | 'GEM_FIND_CHANCE' | 'XP_GAIN_PERCENT';
+    value: number;
+}
+
+export interface SkillCost {
+    coins?: number;
+    gems?: { [color: string]: number };
+}
+
+export interface Skill {
+    id: string;
+    name: string;
+    description: string;
+    cost: SkillCost;
+    requiredLevel: number;
+    requiredSkillId?: string;
+    effect: SkillEffect;
+    icon: 'speed' | 'coin' | 'gem' | 'xp';
+    tier: number;
 }

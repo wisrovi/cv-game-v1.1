@@ -733,19 +733,24 @@ const App: React.FC = () => {
                           ))}
                         </div>
                         
-                        {objectsToRender.map(obj => (
-                            <div key={obj.id} id={obj.id} className={`game-object ${obj.type} ${obj.collectibleType ? `collectible ${obj.collectibleType}` : ''}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, color: obj.gemColor, backgroundColor: obj.type !== 'npc' && !obj.gemColor ? obj.color : undefined }}>
-                               {(obj.type === 'npc') && (
-                                    <>
-                                      <div className="npc-body">
-                                          <div className="npc-head"></div>
-                                      </div>
-                                    </>
-                                )}
-                                {obj.type === 'building' && obj.door && <div className="building-door" style={{ left: obj.door.x, top: obj.door.y, width: obj.door.width, height: obj.door.height }} />}
-                                {(obj.type === 'npc' || obj.type === 'building') && <span className="object-name">{obj.name}</span>}
-                            </div>
-                        ))}
+                        {objectsToRender.map(obj => {
+                            const isMissionTarget = missionTarget && obj.id === missionTarget.id;
+                            const objectClasses = `game-object ${obj.type} ${obj.collectibleType ? `collectible ${obj.collectibleType}` : ''} ${isMissionTarget ? 'mission-target-glow' : ''}`;
+                            
+                            return (
+                                <div key={obj.id} id={obj.id} className={objectClasses} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, color: obj.gemColor, backgroundColor: obj.type !== 'npc' && !obj.gemColor ? obj.color : undefined }}>
+                                   {(obj.type === 'npc') && (
+                                        <>
+                                          <div className="npc-body">
+                                              <div className="npc-head"></div>
+                                          </div>
+                                        </>
+                                    )}
+                                    {obj.type === 'building' && obj.door && <div className="building-door" style={{ left: obj.door.x, top: obj.door.y, width: obj.door.width, height: obj.door.height }} />}
+                                    {(obj.type === 'npc' || obj.type === 'building') && <span className="object-name">{obj.name}</span>}
+                                </div>
+                            );
+                        })}
 
                         <div className={playerClasses} style={{ left: playerState.x, top: playerState.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }}>
                             <div className="player-body">

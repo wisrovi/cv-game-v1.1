@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
 import {
@@ -20,6 +21,7 @@ import {
   skillTree,
 } from './constants';
 import { generateNpcDialogue, generateAdaChatResponse } from './services/geminiService';
+import { playSound, soundLibrary } from './services/audioService';
 import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockIcon } from './components/Icons';
 import MissionChat from './components/MissionChat';
 import SkillTreeDisplay from './components/SkillTreeDisplay';
@@ -49,6 +51,11 @@ const MissionArrow: React.FC<MissionArrowProps> = ({ playerX, playerY, targetX, 
         </div>
     );
 };
+
+interface NotificationOptions {
+  duration?: number;
+  sound?: keyof typeof soundLibrary;
+}
 
 
 const App: React.FC = () => {
@@ -112,7 +119,8 @@ const App: React.FC = () => {
     const gameObjectsRef = useRef(gameObjects);
     gameObjectsRef.current = gameObjects;
     
-    const showNotification = useCallback((message: string, duration: number = 3000) => {
+    const showNotification = useCallback((message: string, options: NotificationOptions = {}) => {
+        const { duration = 3000, sound } = options;
         setNotification(message);
         if (notificationTimeoutRef.current) {
             clearTimeout(notificationTimeoutRef.current);
@@ -120,6 +128,10 @@ const App: React.FC = () => {
         notificationTimeoutRef.current = window.setTimeout(() => {
             setNotification(null);
         }, duration);
+
+        if (sound) {
+            playSound(sound);
+        }
     }, []);
 
     const advanceMissionStep = useCallback((missionId: number) => {
@@ -129,7 +141,7 @@ const App: React.FC = () => {
         const isCompletingMission = mission.paso_actual >= mission.pasos.length - 1;
 
         if (isCompletingMission) {
-            showNotification(`¡Misión "${mission.titulo}" completada!`);
+            showNotification(`¡Misión "${mission.titulo}" completada!`, { sound: 'MISSION_ADVANCE' });
             setPlayerState(p => {
                  const coinGainMultiplier = p.unlockedSkills.reduce((multiplier, skillId) => {
                     const skill = skillTree.find(s => s.id === skillId);
@@ -147,7 +159,7 @@ const App: React.FC = () => {
                  if (newXp >= xpToLevelUp) {
                      newLevel++;
                      newXp -= xpToLevelUp;
-                     showNotification(`¡Subiste de nivel! Nivel ${newLevel}`);
+                     showNotification(`¡Subiste de nivel! Nivel ${newLevel}`, { sound: 'UNLOCK' });
                  }
                  return { ...p, coins: p.coins + finalCoinReward, xp: newXp, level: newLevel, gems: newGems };
             });
@@ -179,7 +191,7 @@ const App: React.FC = () => {
             setMissions(prevMissions => prevMissions.map(m => {
                 if (m.id === missionId) {
                     const newPaso = m.paso_actual + 1;
-                    showNotification(`Nuevo objetivo: ${m.pasos[newPaso].descripcion}`);
+                    showNotification(`Nuevo objetivo: ${m.pasos[newPaso].descripcion}`, { sound: 'MISSION_ADVANCE' });
                     return { ...m, paso_actual: newPaso };
                 }
                 return m;
@@ -189,6 +201,7 @@ const App: React.FC = () => {
 
     const handleCloseAdaChat = useCallback(() => {
         setIsAdaChatOpen(false);
+        playSound('UI_CLICK');
 
         const activeMission = missions.find(m => m.status === 'disponible');
         if (activeMission) {
@@ -201,6 +214,7 @@ const App: React.FC = () => {
     
     // Save/Load Logic
     const handleSaveGame = useCallback(() => {
+        playSound('UI_CLICK');
         try {
             const gameState = {
                 playerState,
@@ -210,14 +224,15 @@ const App: React.FC = () => {
                 teleporterEnabled,
             };
             localStorage.setItem('wisrovi-cv-savegame', JSON.stringify(gameState));
-            showNotification("¡Partida guardada!", 2000);
+            showNotification("¡Partida guardada!", { duration: 2000 });
         } catch (error) {
             console.error("Error saving game state:", error);
-            showNotification("Error al guardar la partida.", 2000);
+            showNotification("Error al guardar la partida.", { duration: 2000, sound: 'ERROR' });
         }
     }, [playerState, missions, gameObjects, devOptionsUnlocked, teleporterEnabled, showNotification]);
 
     const handleLoadGame = useCallback(() => {
+        playSound('UI_CLICK');
         try {
             const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame');
             if (savedStateJSON) {
@@ -231,17 +246,17 @@ const App: React.FC = () => {
                     setGameObjects(savedState.gameObjects);
                     setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
                     setTeleporterEnabled(savedState.teleporterEnabled || false);
-                    showNotification("¡Partida cargada!", 2000);
+                    showNotification("¡Partida cargada!", { duration: 2000 });
                     setIsMenuOpen(false); // Close menu after loading
                 } else {
-                     showNotification("Los datos guardados son inválidos.", 2000);
+                     showNotification("Los datos guardados son inválidos.", { duration: 2000, sound: 'ERROR' });
                 }
             } else {
-                showNotification("No se encontró ninguna partida guardada.", 2000);
+                showNotification("No se encontró ninguna partida guardada.", { duration: 2000, sound: 'ERROR' });
             }
         } catch (error) {
             console.error("Error loading game state:", error);
-            showNotification("Error al cargar la partida.", 2000);
+            showNotification("Error al cargar la partida.", { duration: 2000, sound: 'ERROR' });
         }
     }, [showNotification]);
     
@@ -269,6 +284,7 @@ const App: React.FC = () => {
     }, []); // Empty dependency array ensures this runs only once on mount
 
     const openMissionChat = (mission: Mission) => {
+        playSound('UI_CLICK');
         if (mission.status === 'completada') {
             setChatMission(mission);
             setIsChatOpen(true);
@@ -306,7 +322,7 @@ const App: React.FC = () => {
     const hasInventoryItem = (itemId: string) => playerState.inventory.some(i => i.id === itemId);
 
     const handleInteraction = useCallback(async () => {
-        if (dialogue) { setDialogue(null); return; }
+        if (dialogue) { setDialogue(null); playSound('UI_CLICK'); return; }
         
         const target = playerState.interactionTarget;
         if (!target) return;
@@ -320,6 +336,7 @@ const App: React.FC = () => {
             );
 
             if (dist < playerState.interactionRange) {
+                playSound('DOOR');
                 const building = gameObjects.find(b => b.id === currentInterior.buildingId);
                 if (building && building.door) {
                     setPlayerState(prev => ({
@@ -336,6 +353,7 @@ const App: React.FC = () => {
         // --- Exterior Logic ---
         if (target.id === 'npc_ada') {
             setIsAdaChatOpen(true);
+            playSound('DIALOGUE_START');
             return;
         }
         
@@ -352,6 +370,7 @@ const App: React.FC = () => {
             if (dist < playerState.interactionRange) {
                 const interior = interiors.find(i => i.buildingId === target.id);
                 if (interior) {
+                    playSound('DOOR');
                     setCurrentInterior(interior);
                     setPlayerState(prev => ({
                         ...prev,
@@ -366,6 +385,7 @@ const App: React.FC = () => {
 
         if (target.id === 'npc_vendor') {
             setShopView('buy');
+            playSound('UI_CLICK');
             return;
         }
 
@@ -380,6 +400,7 @@ const App: React.FC = () => {
         if (currentStep.tipo === 'interactuar' && currentStep.objetoId === target.id) {
             if (target.type === 'npc') {
                 setDialogue({ npcName: target.name!, text: "Generando diálogo...", missionContent: activeMission.contenido_educativo });
+                playSound('DIALOGUE_START');
                 
                 const upgradeNames = playerState.upgrades.map(upgradeId => {
                     const item = shopItems.find(si => si.id === upgradeId);
@@ -393,7 +414,7 @@ const App: React.FC = () => {
             }
             actionTaken = true;
         } else if (currentStep.tipo === 'recoger' && currentStep.objetoId === target.id) {
-            showNotification(`¡Has recogido ${target.name}!`);
+            showNotification(`¡Has recogido ${target.name}!`, { sound: 'PICKUP' });
             addInventoryItem(currentStep.itemId!, target.name!, 1);
             setGameObjects(prev => prev.filter(obj => obj.id !== target.id));
             actionTaken = true;
@@ -412,10 +433,10 @@ const App: React.FC = () => {
             if(inZone) {
                 if (currentStep.requiredItem && hasInventoryItem(currentStep.requiredItem)) {
                     removeInventoryItem(currentStep.requiredItem);
-                    showNotification(`Has entregado el objeto a ${zone?.name || 'la zona'}.`);
+                    showNotification(`Has entregado el objeto a ${zone?.name || 'la zona'}.`, { sound: 'PICKUP' });
                     actionTaken = true;
                 } else {
-                    showNotification(`Necesitas el objeto requerido.`);
+                    showNotification(`Necesitas el objeto requerido.`, { sound: 'ERROR' });
                 }
             }
         }
@@ -426,6 +447,7 @@ const App: React.FC = () => {
     }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior, gameObjects]);
 
     const buyShopItem = (item: ShopItem) => {
+        playSound('UI_CLICK');
         if (playerState.coins >= item.cost && !playerState.upgrades.includes(item.id)) {
             setPlayerState(p => {
                 const newUpgrades = [...p.upgrades, item.id];
@@ -446,11 +468,16 @@ const App: React.FC = () => {
                     xpBoost: newXpBoost,
                 };
             });
-            showNotification(`¡Has comprado ${item.name}!`);
+            showNotification(`¡Has comprado ${item.name}!`, { sound: 'UNLOCK' });
+        } else if (playerState.upgrades.includes(item.id)) {
+            showNotification('Ya has comprado esta mejora.', { sound: 'ERROR' });
+        } else {
+            showNotification('No tienes suficientes monedas.', { sound: 'ERROR' });
         }
     };
     
     const handleSellGem = (color: string) => {
+        playSound('UI_CLICK');
         if (playerState.gems[color] && playerState.gems[color] > 0) {
             setPlayerState(p => {
                 const newGems = { ...p.gems };
@@ -464,34 +491,35 @@ const App: React.FC = () => {
                     coins: p.coins + GEM_SELL_VALUE,
                 };
             });
-            showNotification(`¡Has vendido una gema por ${GEM_SELL_VALUE} monedas!`);
+            showNotification(`¡Has vendido una gema por ${GEM_SELL_VALUE} monedas!`, { sound: 'PICKUP' });
         }
     };
     
     const handleUnlockSkill = (skillId: string) => {
+        playSound('UI_CLICK');
         const skill = skillTree.find(s => s.id === skillId);
         if (!skill) return;
     
         if (playerState.unlockedSkills.includes(skill.id)) {
-            showNotification("Ya has desbloqueado esta habilidad.");
+            showNotification("Ya has desbloqueado esta habilidad.", { sound: 'ERROR' });
             return;
         }
         if (skill.requiredSkillId && !playerState.unlockedSkills.includes(skill.requiredSkillId)) {
-            showNotification("Necesitas desbloquear la habilidad anterior primero.");
+            showNotification("Necesitas desbloquear la habilidad anterior primero.", { sound: 'ERROR' });
             return;
         }
         if (playerState.level < skill.requiredLevel) {
-            showNotification(`Necesitas ser nivel ${skill.requiredLevel} para desbloquear esto.`);
+            showNotification(`Necesitas ser nivel ${skill.requiredLevel} para desbloquear esto.`, { sound: 'ERROR' });
             return;
         }
         if (skill.cost.coins && playerState.coins < skill.cost.coins) {
-            showNotification("No tienes suficientes monedas.");
+            showNotification("No tienes suficientes monedas.", { sound: 'ERROR' });
             return;
         }
         if (skill.cost.gems) {
             for (const color in skill.cost.gems) {
                 if ((playerState.gems[color] || 0) < skill.cost.gems[color]) {
-                    showNotification("No tienes suficientes gemas de ese color.");
+                    showNotification("No tienes suficientes gemas de ese color.", { sound: 'ERROR' });
                     return;
                 }
             }
@@ -528,7 +556,7 @@ const App: React.FC = () => {
             return { ...prev, coins: newCoins, gems: newGems, unlockedSkills: newUnlockedSkills, speed: newSpeed, xpBoost: newXpBoost };
         });
     
-        showNotification(`Habilidad Desbloqueada: ${skill.name}!`);
+        showNotification(`Habilidad Desbloqueada: ${skill.name}!`, { sound: 'UNLOCK' });
     };
 
     const handleVersionClick = () => {
@@ -543,7 +571,7 @@ const App: React.FC = () => {
             if (!devOptionsUnlocked) {
                 setDevOptionsUnlocked(true);
                 localStorage.setItem('devOptionsUnlocked', 'true');
-                showNotification("¡Opciones de desarrollador desbloqueadas!");
+                showNotification("¡Opciones de desarrollador desbloqueadas!", { sound: 'UNLOCK' });
             }
             setVersionClickCount(0); // Reset on success
         } else {
@@ -558,6 +586,7 @@ const App: React.FC = () => {
         setTeleporterEnabled(newSetting);
         localStorage.setItem('teleporterEnabled', String(newSetting));
         showNotification(`Teletransporte ${newSetting ? 'activado' : 'desactivado'}.`);
+        playSound('UI_CLICK');
     };
     
     useEffect(() => {
@@ -575,7 +604,7 @@ const App: React.FC = () => {
 
     const handleTeleport = useCallback(() => {
         if(currentInterior) {
-            showNotification("No se puede usar el teletransporte en interiores.");
+            showNotification("No se puede usar el teletransporte en interiores.", { sound: 'ERROR' });
             return;
         }
 
@@ -588,7 +617,7 @@ const App: React.FC = () => {
         }
 
         if (!missionToTarget) {
-            showNotification("¡Felicidades! Has completado todas las misiones.");
+            showNotification("¡Felicidades! Has completado todas las misiones.", { sound: 'UNLOCK' });
             return;
         }
 
@@ -596,13 +625,13 @@ const App: React.FC = () => {
         const targetId = currentStep.tipo === 'entregar' ? currentStep.zona : currentStep.objetoId;
 
         if (!targetId) {
-            showNotification("El siguiente paso no tiene un objetivo físico.");
+            showNotification("El siguiente paso no tiene un objetivo físico.", { sound: 'ERROR' });
             return;
         }
         const targetObject = gameObjects.find(obj => obj.id === targetId);
 
         if (!targetObject) {
-            showNotification("No se pudo encontrar el objetivo de la misión.");
+            showNotification("No se pudo encontrar el objetivo de la misión.", { sound: 'ERROR' });
             return;
         }
 
@@ -664,6 +693,7 @@ const App: React.FC = () => {
                 setIsCameraSnapping(true);
                 setPlayerState(prev => ({ ...prev, x: safeSpot.x, y: safeSpot.y }));
                 setTeleportPhase('in');
+                playSound('TELEPORT');
                 showNotification(`Teletransportado a ${targetObject.name || 'objetivo'} (${missionPurpose}).`);
             }, 500);
 
@@ -672,7 +702,7 @@ const App: React.FC = () => {
                 setTeleportPhase('idle');
             }, 1000);
         } else {
-            showNotification("No se pudo encontrar un punto de aterrizaje seguro cerca del objetivo.");
+            showNotification("No se pudo encontrar un punto de aterrizaje seguro cerca del objetivo.", { sound: 'ERROR' });
         }
     }, [missions, gameObjects, showNotification, currentInterior]);
 
@@ -787,6 +817,7 @@ const App: React.FC = () => {
                     });
                     
                     if (collectedThisFrame.length > 0) {
+                        playSound('PICKUP');
                         const coinGainMultiplier = prev.unlockedSkills.reduce((multiplier, skillId) => {
                             const skill = skillTree.find(s => s.id === skillId);
                             if (skill?.effect.type === 'COIN_GAIN_PERCENT') {
@@ -820,9 +851,9 @@ const App: React.FC = () => {
                             }, 500);
                          });
 
-                         if (finalCoinsGained > 0) showNotification(`+${finalCoinsGained} moneda!`, 1000);
+                         if (finalCoinsGained > 0) showNotification(`+${finalCoinsGained} moneda!`, { duration: 1000 });
                          const numGems = Object.values(gemsGained).reduce((a, b) => a + b, 0);
-                         if (numGems > 0) showNotification(`+${numGems} gema!`, 1000);
+                         if (numGems > 0) showNotification(`+${numGems} gema!`, { duration: 1000 });
 
                          const newGems = {...prev.gems};
                          Object.entries(gemsGained).forEach(([color, amount]) => {
@@ -857,17 +888,24 @@ const App: React.FC = () => {
                 }
             } else if (e.key.toLowerCase() === 'i') {
                 setIsInventoryOpen(prev => !prev);
+                playSound('UI_CLICK');
             } else if (e.key.toLowerCase() === 'h') {
                 setShowHud(prev => !prev);
             } else if (e.key.toLowerCase() === 'm') {
                 setIsMenuOpen(true);
                 setMenuView('main');
+                playSound('UI_CLICK');
             } else if (e.key === 'Escape') {
-                if (dialogue) setDialogue(null);
-                if (shopView !== 'closed') setShopView('closed');
-                if (isInventoryOpen) setIsInventoryOpen(false);
-                if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); }
-                if (isAdaChatOpen) handleCloseAdaChat();
+                let didCloseSomething = false;
+                if (dialogue) { setDialogue(null); didCloseSomething = true; }
+                if (shopView !== 'closed') { setShopView('closed'); didCloseSomething = true; }
+                if (isInventoryOpen) { setIsInventoryOpen(false); didCloseSomething = true; }
+                if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); didCloseSomething = true; }
+                if (isAdaChatOpen) { handleCloseAdaChat(); didCloseSomething = true; }
+
+                if (didCloseSomething) {
+                    playSound('UI_CLICK');
+                }
             } else {
                 const key = e.key.toLowerCase();
                 // Prevent default for movement keys to avoid scrolling the page
@@ -1039,7 +1077,7 @@ const App: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                    <button className="hud-button" onClick={() => { setIsMenuOpen(true); setMenuView('main'); }} aria-label="Abrir menú">
+                    <button className="hud-button" onClick={() => { setIsMenuOpen(true); setMenuView('main'); playSound('UI_CLICK'); }} aria-label="Abrir menú">
                         <SettingsIcon />
                     </button>
                 </div>
@@ -1084,7 +1122,7 @@ const App: React.FC = () => {
             )}
             
             {dialogue && (
-                <div className="dialogue-overlay" onClick={() => setDialogue(null)}>
+                <div className="dialogue-overlay" onClick={() => { setDialogue(null); playSound('UI_CLICK'); }}>
                     <div className="dialogue-box">
                         <h3>{dialogue.npcName}</h3>
                         <p>{dialogue.text}</p>
@@ -1098,8 +1136,8 @@ const App: React.FC = () => {
                     <div className="modal-box">
                         <h3>Tienda</h3>
                          <div className="shop-options">
-                            <button onClick={() => setShopView('buy')} disabled={shopView === 'buy'}>Comprar Mejoras</button>
-                            <button onClick={() => setShopView('sell')} disabled={shopView === 'sell'}>Vender Gemas</button>
+                            <button onClick={() => { setShopView('buy'); playSound('UI_CLICK'); }} disabled={shopView === 'buy'}>Comprar Mejoras</button>
+                            <button onClick={() => { setShopView('sell'); playSound('UI_CLICK'); }} disabled={shopView === 'sell'}>Vender Gemas</button>
                         </div>
                         {shopView === 'buy' && (
                             <div className="item-list">
@@ -1109,7 +1147,7 @@ const App: React.FC = () => {
                                             <b>{item.name}</b>
                                             <p>{item.description}</p>
                                         </div>
-                                        <button onClick={() => buyShopItem(item)} disabled={playerState.coins < item.cost || playerState.upgrades.includes(item.id)}>
+                                        <button onClick={() => buyShopItem(item)} disabled={playerState.upgrades.includes(item.id)}>
                                             {playerState.upgrades.includes(item.id) ? 'Comprado' : `${item.cost} Monedas`}
                                         </button>
                                     </div>
@@ -1134,7 +1172,7 @@ const App: React.FC = () => {
                                 }) : <p>No tienes gemas para vender.</p>}
                              </div>
                         )}
-                         <button onClick={() => setShopView('closed')} style={{marginTop: '20px'}}>Cerrar</button>
+                         <button onClick={() => { setShopView('closed'); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Cerrar</button>
                     </div>
                 </div>
             )}
@@ -1148,7 +1186,7 @@ const App: React.FC = () => {
                            playerState.inventory.map(item => <div className="list-item" key={item.id}><p>{item.name} <span>x{item.quantity}</span></p></div>)
                         ) : <p>Tu inventario está vacío.</p>}
                         </div>
-                         <button onClick={() => setIsInventoryOpen(false)} style={{marginTop: '20px'}}>Cerrar</button>
+                         <button onClick={() => { setIsInventoryOpen(false); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Cerrar</button>
                     </div>
                 </div>
             )}
@@ -1160,9 +1198,9 @@ const App: React.FC = () => {
                             <>
                                 <h3>Menú del Juego</h3>
                                 <div className="menu-options">
-                                    <button onClick={() => setMenuView('missions')}>Lista de Misiones</button>
-                                    <button onClick={() => setMenuView('skills')}>Árbol de Habilidades</button>
-                                    <button onClick={() => setMenuView('map')}>Mapa del Mundo</button>
+                                    <button onClick={() => { setMenuView('missions'); playSound('UI_CLICK'); }}>Lista de Misiones</button>
+                                    <button onClick={() => { setMenuView('skills'); playSound('UI_CLICK'); }}>Árbol de Habilidades</button>
+                                    <button onClick={() => { setMenuView('map'); playSound('UI_CLICK'); }}>Mapa del Mundo</button>
                                     <button onClick={handleSaveGame}>Guardar Partida</button>
                                     <button onClick={handleLoadGame}>Cargar Partida</button>
                                 </div>
@@ -1182,7 +1220,7 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                <button onClick={() => { setIsMenuOpen(false); setMenuView('main'); }} style={{marginTop: '20px'}}>Cerrar</button>
+                                <button onClick={() => { setIsMenuOpen(false); setMenuView('main'); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Cerrar</button>
                             </>
                         )}
                         {menuView === 'missions' && (
@@ -1220,7 +1258,7 @@ const App: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
+                                <button onClick={() => { setMenuView('main'); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Volver</button>
                             </>
                         )}
                         {menuView === 'skills' && (
@@ -1229,7 +1267,7 @@ const App: React.FC = () => {
                                     playerState={playerState}
                                     onUnlockSkill={handleUnlockSkill}
                                 />
-                                <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
+                                <button onClick={() => { setMenuView('main'); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Volver</button>
                             </>
                         )}
                          {menuView === 'map' && (
@@ -1239,7 +1277,7 @@ const App: React.FC = () => {
                                     playerState={playerState}
                                     missionTarget={missionTarget}
                                 />
-                                <button onClick={() => setMenuView('main')} style={{marginTop: '20px'}}>Volver</button>
+                                <button onClick={() => { setMenuView('main'); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Volver</button>
                             </>
                         )}
                     </div>
@@ -1254,7 +1292,7 @@ const App: React.FC = () => {
                 />
             )}
             
-            {isChatOpen && chatMission && <MissionChat mission={chatMission} onClose={() => setIsChatOpen(false)} />}
+            {isChatOpen && chatMission && <MissionChat mission={chatMission} onClose={() => { setIsChatOpen(false); playSound('UI_CLICK'); }} />}
             
             {notification && <div className="notification">{notification}</div>}
         </div>

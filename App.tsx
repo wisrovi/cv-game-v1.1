@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
 import {
@@ -890,8 +884,8 @@ const App: React.FC = () => {
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
 
-    const cameraX = Math.max(0, Math.min(playerState.x - VIEWPORT_WIDTH / 2, WORLD_WIDTH - VIEWPORT_WIDTH));
-    const cameraY = Math.max(0, Math.min(playerState.y - VIEWPORT_HEIGHT / 2, WORLD_HEIGHT - VIEWPORT_HEIGHT));
+    const cameraX = Math.max(0, Math.min(playerState.x + PLAYER_WIDTH / 2 - VIEWPORT_WIDTH / 2, WORLD_WIDTH - VIEWPORT_WIDTH));
+    const cameraY = Math.max(0, Math.min(playerState.y + PLAYER_HEIGHT / 2 - VIEWPORT_HEIGHT / 2, WORLD_HEIGHT - VIEWPORT_HEIGHT));
 
     let missionTarget: GameObject | null = null;
     if (activeMission && !currentInterior) {

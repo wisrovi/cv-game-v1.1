@@ -9,7 +9,7 @@ interface WorldMapProps {
 }
 
 const WorldMap: React.FC<WorldMapProps> = ({ gameObjects, playerState, missionTarget }) => {
-    const MAP_DISPLAY_WIDTH = 750;
+    const MAP_DISPLAY_WIDTH = 640;
     const scale = MAP_DISPLAY_WIDTH / WORLD_WIDTH;
     const MAP_DISPLAY_HEIGHT = WORLD_HEIGHT * scale;
 

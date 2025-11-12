@@ -1,4 +1,5 @@
 import { PersistentState } from '../types';
+import { REDIS_HOST, REDIS_PORT, REDIS_PASSWORD } from '../config';
 
 const SESSION_ID_KEY = 'wisrovi-cv-session-id';
 
@@ -15,11 +16,8 @@ const SESSION_ID_KEY = 'wisrovi-cv-session-id';
 // conectarse de forma segura a la base de datos.
 // ===================================================================================
 
-const REDIS_HOST = process.env.REDIS_HOST;
-const REDIS_PORT = process.env.REDIS_PORT;
 const REDIS_USER = 'default'; // The user provided 'default' for Redis Cloud
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
-const REDIS_BASE_URL = REDIS_HOST && REDIS_PORT ? `https://${REDIS_HOST}:${REDIS_PORT}` : null;
+const REDIS_BASE_URL = '/redis-api';
 
 
 /**
@@ -52,9 +50,11 @@ export function getSessionId(): string {
  * @param state The persistent state of the game to save.
  */
 export async function saveGameState(state: PersistentState): Promise<void> {
-    if (!REDIS_BASE_URL || !REDIS_PASSWORD) {
-        console.error("Redis configuration is missing in environment variables (HOST, PORT, PASSWORD). Cannot save game state.");
-        throw new Error("La configuración de Redis no está disponible.");
+    // FIX: Removed obsolete check for placeholder Redis password. The check for falsy values is sufficient.
+    if (!REDIS_HOST || !REDIS_PORT || !REDIS_PASSWORD) {
+        const errorMessage = "La configuración de Redis está incompleta en config.ts. No se puede guardar el progreso.";
+        console.error(errorMessage);
+        throw new Error(errorMessage);
     }
 
     const sessionId = getSessionId();
@@ -87,10 +87,11 @@ export async function saveGameState(state: PersistentState): Promise<void> {
  * @returns The loaded PersistentState or null if not found or on error.
  */
 export async function loadGameState(): Promise<PersistentState | null> {
-    if (!REDIS_BASE_URL || !REDIS_PASSWORD) {
-        console.error("Redis configuration is missing in environment variables (HOST, PORT, PASSWORD). Cannot load game state.");
-        // Throw an error here so the UI can show a more specific message.
-        throw new Error("Redis configuration is missing in environment variables. Cannot load game state.");
+    // FIX: Removed obsolete check for placeholder Redis password. The check for falsy values is sufficient.
+    if (!REDIS_HOST || !REDIS_PORT || !REDIS_PASSWORD) {
+        const errorMessage = "La configuración de Redis está incompleta en config.ts. No se puede cargar el progreso.";
+        console.error(errorMessage);
+        throw new Error(errorMessage);
     }
     const sessionId = getSessionId();
     const key = `wisrovi-cv-session:${sessionId}`;

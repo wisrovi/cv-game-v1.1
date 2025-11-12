@@ -116,7 +116,7 @@ const initialGameObjects: GameObject[] = [
 
   // Mission specific objects
   { id: 'log_panel_1', x: 225, y: 360, width: 25, height: 25, type: 'object', name: 'Panel de Logs', color: '#00FFFF' },
-  { id: 'chip_wkafka_1', x: 840, y: 340, width: 20, height: 20, type: 'object', name: 'Chip de Configuración', color: '#FFD700' },
+  { id: 'chip_wkafka_1', x: 840, y: 340, width: 20, height: 20, type: 'object', name: 'Chip de Configuración', color: '#FFD700', collectibleType: 'coin', value: 50 },
   { id: 'panel_redis_map_1', x: 1450, y: 440, width: 25, height: 25, type: 'object', name: 'Mapa del Clúster', color: '#1E90FF' },
   { id: 'repair_module_1', x: 2020, y: 740, width: 30, height: 30, type: 'object', name: 'Módulo de Reparación', color: '#FF4500' },
   { id: 'facial_scan_terminal', x: 250, y: 790, width: 30, height: 30, type: 'object', name: 'Terminal de Escaneo', color: '#F0E442' },

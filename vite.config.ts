@@ -12,7 +12,10 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.REDIS_HOST': JSON.stringify(env.REDIS_HOST),
+        'process.env.REDIS_PORT': JSON.stringify(env.REDIS_PORT),
+        'process.env.REDIS_PASSWORD': JSON.stringify(env.REDIS_PASSWORD),
       },
       resolve: {
         alias: {

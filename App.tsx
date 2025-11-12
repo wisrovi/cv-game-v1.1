@@ -1,7 +1,8 @@
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill } from './types';
+import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill, PersistentState } from './types';
 import {
   gameObjects as initialGameObjects,
   missions as initialMissions,
@@ -23,6 +24,7 @@ import {
 } from './constants';
 import { generateNpcDialogue } from './services/geminiService';
 import { playSound, soundLibrary } from './services/audioService';
+import { getSessionId, saveGameState, loadGameState } from './services/stateService';
 import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockIcon } from './components/Icons';
 import MissionChat from './components/MissionChat';
 import SkillTreeDisplay from './components/SkillTreeDisplay';
@@ -95,6 +97,9 @@ const App: React.FC = () => {
     const [currentInterior, setCurrentInterior] = useState<Interior | null>(null);
     const [poppingCollectibles, setPoppingCollectibles] = useState<GameObject[]>([]);
     const [viewportSize, setViewportSize] = useState({ width: BASE_VIEWPORT_WIDTH, height: BASE_VIEWPORT_HEIGHT });
+    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [sessionId, setSessionId] = useState<string | null>(null);
 
     // Developer Mode State
     const [devOptionsUnlocked, setDevOptionsUnlocked] = useState(false);
@@ -114,7 +119,7 @@ const App: React.FC = () => {
     
     const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen;
     const isPausedRef = useRef(isGamePaused);
-    isPausedRef.current = isGamePaused;
+isPausedRef.current = isGamePaused;
     
     useEffect(() => {
         if (isGamePaused) {
@@ -124,6 +129,29 @@ const App: React.FC = () => {
     
     const gameObjectsRef = useRef(gameObjects);
     gameObjectsRef.current = gameObjects;
+    
+    const getPersistentState = useCallback((): PersistentState => {
+        const { x, y, interactionTarget, isMoving, ...parsistedPlayerState } = playerState;
+        return {
+            playerState: parsistedPlayerState,
+            missions,
+            devOptions: {
+                devOptionsUnlocked,
+                teleporterEnabled,
+            }
+        };
+    }, [playerState, missions, devOptionsUnlocked, teleporterEnabled]);
+    
+    const autoSave = useCallback(async () => {
+        const currentState = getPersistentState();
+        try {
+            await saveGameState(currentState);
+            console.log("Autosave successful.");
+        } catch (error) {
+            console.error("Autosave failed:", error);
+        }
+    }, [getPersistentState]);
+
 
     useEffect(() => {
         const handleResize = () => {
@@ -226,7 +254,8 @@ const App: React.FC = () => {
                 return m;
             }));
         }
-    }, [missions, showNotification]);
+        autoSave();
+    }, [missions, showNotification, autoSave]);
 
     const handleCloseAdaChat = useCallback(() => {
         setIsAdaChatOpen(false);
@@ -256,7 +285,21 @@ const App: React.FC = () => {
     }, [missions, advanceMissionStep]);
 
     // Save/Load Logic
-    const handleSaveGame = useCallback(() => {
+    const handleSaveToCloud = useCallback(async () => {
+        playSound('UI_CLICK');
+        setIsSaving(true);
+        try {
+            await saveGameState(getPersistentState());
+            showNotification("¡Progreso guardado en la nube!", { duration: 2000 });
+        } catch (error) {
+            console.error("Error saving game state:", error);
+            showNotification("Error al guardar en la nube.", { duration: 2000, sound: 'ERROR' });
+        } finally {
+            setIsSaving(false);
+        }
+    }, [getPersistentState, showNotification]);
+
+    const handleSaveLocally = useCallback(() => {
         playSound('UI_CLICK');
         try {
             const gameState = {
@@ -266,18 +309,18 @@ const App: React.FC = () => {
                 devOptionsUnlocked,
                 teleporterEnabled,
             };
-            localStorage.setItem('wisrovi-cv-savegame', JSON.stringify(gameState));
-            showNotification("¡Partida guardada!", { duration: 2000 });
+            localStorage.setItem('wisrovi-cv-savegame-local', JSON.stringify(gameState));
+            showNotification("¡Partida guardada localmente!", { duration: 2000 });
         } catch (error) {
-            console.error("Error saving game state:", error);
-            showNotification("Error al guardar la partida.", { duration: 2000, sound: 'ERROR' });
+            console.error("Error saving game state locally:", error);
+            showNotification("Error al guardar la partida local.", { duration: 2000, sound: 'ERROR' });
         }
     }, [playerState, missions, gameObjects, devOptionsUnlocked, teleporterEnabled, showNotification]);
 
-    const handleLoadGame = useCallback(() => {
+    const handleLoadLocally = useCallback(() => {
         playSound('UI_CLICK');
         try {
-            const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame');
+            const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame-local');
             if (savedStateJSON) {
                 const savedState = JSON.parse(savedStateJSON);
                 if (savedState.playerState && savedState.missions && savedState.gameObjects) {
@@ -289,41 +332,55 @@ const App: React.FC = () => {
                     setGameObjects(savedState.gameObjects);
                     setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
                     setTeleporterEnabled(savedState.teleporterEnabled || false);
-                    showNotification("¡Partida cargada!", { duration: 2000 });
+                    showNotification("¡Partida local cargada!", { duration: 2000 });
                     setIsMenuOpen(false); // Close menu after loading
                 } else {
-                     showNotification("Los datos guardados son inválidos.", { duration: 2000, sound: 'ERROR' });
+                     showNotification("Los datos guardados locales son inválidos.", { duration: 2000, sound: 'ERROR' });
                 }
             } else {
-                showNotification("No se encontró ninguna partida guardada.", { duration: 2000, sound: 'ERROR' });
+                showNotification("No se encontró ninguna partida guardada localmente.", { duration: 2000, sound: 'ERROR' });
             }
         } catch (error) {
-            console.error("Error loading game state:", error);
-            showNotification("Error al cargar la partida.", { duration: 2000, sound: 'ERROR' });
+            console.error("Error loading game state locally:", error);
+            showNotification("Error al cargar la partida local.", { duration: 2000, sound: 'ERROR' });
         }
     }, [showNotification]);
     
-    // Load game state from localStorage on initial load
+    // Load game state from Redis on initial load
     useEffect(() => {
-        try {
-            const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame');
-            if (savedStateJSON) {
-                const savedState = JSON.parse(savedStateJSON);
-                // Basic validation to ensure we're not loading corrupt data
-                if (savedState.playerState && savedState.missions && savedState.gameObjects) {
-                     setPlayerState({
-                        ...savedState.playerState,
-                        unlockedSkills: savedState.playerState.unlockedSkills || []
+        const initializeGame = async () => {
+            setIsLoading(true);
+            const currentSessionId = getSessionId();
+            setSessionId(currentSessionId);
+            
+            try {
+                const cloudState = await loadGameState();
+                if (cloudState) {
+                    const { x, y } = playerState; // Keep current position
+                    setPlayerState({
+                        ...cloudState.playerState,
+                        x, y, // Restore non-persistent fields
+                        interactionTarget: null,
+                        isMoving: false,
                     });
-                    setMissions(savedState.missions);
-                    setGameObjects(savedState.gameObjects);
-                    setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
-                    setTeleporterEnabled(savedState.teleporterEnabled || false);
+                    setMissions(cloudState.missions);
+                    setDevOptionsUnlocked(cloudState.devOptions.devOptionsUnlocked);
+                    setTeleporterEnabled(cloudState.devOptions.teleporterEnabled);
+                    showNotification("Progreso cargado desde la nube.", { duration: 2500 });
+                } else {
+                     // Fallback to local save if no cloud save exists
+                     handleLoadLocally();
                 }
+            } catch (error) {
+                console.warn("Could not load from cloud, trying local save.", error);
+                showNotification("No se pudo conectar a la nube. Cargando localmente...", { sound: 'ERROR'});
+                handleLoadLocally();
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.warn("Could not read saved game from localStorage", error);
-        }
+        };
+
+        initializeGame();
     }, []); // Empty dependency array ensures this runs only once on mount
 
     const openMissionChat = (mission: Mission) => {
@@ -524,6 +581,7 @@ const App: React.FC = () => {
                 };
             });
             showNotification(`¡Has comprado ${item.name}!`, { sound: 'UNLOCK' });
+            autoSave();
         } else if (playerState.upgrades.includes(item.id)) {
             showNotification('Ya has comprado esta mejora.', { sound: 'ERROR' });
         } else {
@@ -612,6 +670,7 @@ const App: React.FC = () => {
         });
     
         showNotification(`Habilidad Desbloqueada: ${skill.name}!`, { sound: 'UNLOCK' });
+        autoSave();
     };
 
     const handleVersionClick = () => {
@@ -625,10 +684,10 @@ const App: React.FC = () => {
         if (newCount >= 7) {
             if (!devOptionsUnlocked) {
                 setDevOptionsUnlocked(true);
-                localStorage.setItem('devOptionsUnlocked', 'true');
                 showNotification("¡Opciones de desarrollador desbloqueadas!", { sound: 'UNLOCK' });
             }
             setVersionClickCount(0); // Reset on success
+            autoSave();
         } else {
             versionClickTimeoutRef.current = window.setTimeout(() => {
                 setVersionClickCount(0);
@@ -639,9 +698,9 @@ const App: React.FC = () => {
     const handleTeleporterToggle = () => {
         const newSetting = !teleporterEnabled;
         setTeleporterEnabled(newSetting);
-        localStorage.setItem('teleporterEnabled', String(newSetting));
         showNotification(`Teletransporte ${newSetting ? 'activado' : 'desactivado'}.`);
         playSound('UI_CLICK');
+        autoSave();
     };
     
     useEffect(() => {
@@ -1026,6 +1085,17 @@ const App: React.FC = () => {
         return !obj.interiorId;
     });
 
+    if (isLoading) {
+        return (
+            <div className="app-container">
+                <div className="dialogue-box">
+                    <h3>Cargando Mundo Interactivo...</h3>
+                    <p>Conectando con la memoria persistente...</p>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="app-container">
             {isTeleporting && <div className="teleport-overlay"></div>}
@@ -1263,8 +1333,9 @@ const App: React.FC = () => {
                                     <button onClick={() => { setMenuView('missions'); playSound('UI_CLICK'); }}>Lista de Misiones</button>
                                     <button onClick={() => { setMenuView('skills'); playSound('UI_CLICK'); }}>Árbol de Habilidades</button>
                                     <button onClick={() => { setMenuView('map'); playSound('UI_CLICK'); }}>Mapa del Mundo</button>
-                                    <button onClick={handleSaveGame}>Guardar Partida</button>
-                                    <button onClick={handleLoadGame}>Cargar Partida</button>
+                                    <button onClick={handleSaveToCloud} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar en la Nube'}</button>
+                                    <button onClick={handleSaveLocally}>Guardar Localmente</button>
+                                    <button onClick={handleLoadLocally}>Cargar Localmente</button>
                                 </div>
 
                                 <p className="game-version" onClick={handleVersionClick}>v{GAME_VERSION}</p>

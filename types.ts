@@ -39,6 +39,19 @@ export interface PlayerState {
     isMoving?: boolean;
 }
 
+// State that gets saved to Redis (omits transient data like position)
+export type PersistentPlayerState = Omit<PlayerState, 'x' | 'y' | 'interactionTarget' | 'isMoving'>;
+
+export interface PersistentState {
+    playerState: PersistentPlayerState;
+    missions: Mission[];
+    devOptions: {
+        devOptionsUnlocked: boolean;
+        teleporterEnabled: boolean;
+    };
+}
+
+
 export interface MissionStep {
     descripcion: string;
     tipo: 'interactuar' | 'recoger' | 'entregar' | 'info';
@@ -51,7 +64,7 @@ export interface MissionStep {
 export interface Mission {
     id: number;
     titulo: string;
-    descripcion: string;
+    descripcion:string;
     recompensa_gemas: number;
     color_gema: string;
     recompensa_monedas: number;

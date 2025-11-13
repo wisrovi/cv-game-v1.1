@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill, PersistentState } from './types';
 import {
@@ -24,7 +25,7 @@ import {
 } from './constants';
 import { generateNpcDialogue } from './services/geminiService';
 import { playSound, soundLibrary } from './services/audioService';
-import { getSessionId, saveGameState, loadGameState } from './services/stateService';
+import { saveGameState, loadGameState } from './services/stateService';
 import { CoinIcon, GemIcon, XPIcon, InteractIcon, SettingsIcon, CheckIcon, LockIcon } from './components/Icons';
 import MissionChat from './components/MissionChat';
 import SkillTreeDisplay from './components/SkillTreeDisplay';
@@ -33,6 +34,7 @@ import Minimap from './components/Minimap';
 import WorldMap from './components/WorldMap';
 import DeployPuzzle from './components/DeployPuzzle';
 import ImageGenerator from './components/ImageGenerator';
+import PlayerNamePrompt from './components/PlayerNamePrompt';
 import './App.css';
 
 interface MissionArrowProps {
@@ -64,6 +66,7 @@ interface NotificationOptions {
 
 
 const App: React.FC = () => {
+    const [playerName, setPlayerName] = useState<string | null>(null);
     const [playerState, setPlayerState] = useState<PlayerState>({
         x: 1100,
         y: 1450,
@@ -99,7 +102,6 @@ const App: React.FC = () => {
     const [viewportSize, setViewportSize] = useState({ width: BASE_VIEWPORT_WIDTH, height: BASE_VIEWPORT_HEIGHT });
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [sessionId, setSessionId] = useState<string | null>(null);
 
     // Developer Mode State
     const [devOptionsUnlocked, setDevOptionsUnlocked] = useState(false);
@@ -143,14 +145,15 @@ isPausedRef.current = isGamePaused;
     }, [playerState, missions, devOptionsUnlocked, teleporterEnabled]);
     
     const autoSave = useCallback(async () => {
+        if (!playerName) return;
         const currentState = getPersistentState();
         try {
-            await saveGameState(currentState);
+            await saveGameState(playerName, currentState);
             console.log("Autosave successful.");
         } catch (error) {
             console.error("Autosave failed:", error);
         }
-    }, [getPersistentState]);
+    }, [getPersistentState, playerName]);
 
 
     useEffect(() => {
@@ -285,78 +288,34 @@ isPausedRef.current = isGamePaused;
     }, [missions, advanceMissionStep]);
 
     // Save/Load Logic
-    const handleSaveToCloud = useCallback(async () => {
+    const handleSave = useCallback(async () => {
+        if (!playerName) return;
         playSound('UI_CLICK');
         setIsSaving(true);
         try {
-            await saveGameState(getPersistentState());
-            showNotification("¡Progreso guardado en la nube!", { duration: 2000 });
+            await saveGameState(playerName, getPersistentState());
+            showNotification("¡Progreso guardado!", { duration: 2000 });
         } catch (error) {
             console.error("Error saving game state:", error);
-            showNotification("Error al guardar en la nube.", { duration: 2000, sound: 'ERROR' });
+            showNotification("Error al guardar.", { duration: 2000, sound: 'ERROR' });
         } finally {
             setIsSaving(false);
         }
-    }, [getPersistentState, showNotification]);
+    }, [getPersistentState, showNotification, playerName]);
 
-    const handleSaveLocally = useCallback(() => {
-        playSound('UI_CLICK');
-        try {
-            const gameState = {
-                playerState,
-                missions,
-                gameObjects,
-                devOptionsUnlocked,
-                teleporterEnabled,
-            };
-            localStorage.setItem('wisrovi-cv-savegame-local', JSON.stringify(gameState));
-            showNotification("¡Partida guardada localmente!", { duration: 2000 });
-        } catch (error) {
-            console.error("Error saving game state locally:", error);
-            showNotification("Error al guardar la partida local.", { duration: 2000, sound: 'ERROR' });
-        }
-    }, [playerState, missions, gameObjects, devOptionsUnlocked, teleporterEnabled, showNotification]);
-
-    const handleLoadLocally = useCallback(() => {
-        playSound('UI_CLICK');
-        try {
-            const savedStateJSON = localStorage.getItem('wisrovi-cv-savegame-local');
-            if (savedStateJSON) {
-                const savedState = JSON.parse(savedStateJSON);
-                if (savedState.playerState && savedState.missions && savedState.gameObjects) {
-                    setPlayerState({
-                        ...savedState.playerState,
-                        unlockedSkills: savedState.playerState.unlockedSkills || []
-                    });
-                    setMissions(savedState.missions);
-                    setGameObjects(savedState.gameObjects);
-                    setDevOptionsUnlocked(savedState.devOptionsUnlocked || false);
-                    setTeleporterEnabled(savedState.teleporterEnabled || false);
-                    showNotification("¡Partida local cargada!", { duration: 2000 });
-                    setIsMenuOpen(false); // Close menu after loading
-                } else {
-                     showNotification("Los datos guardados locales son inválidos.", { duration: 2000, sound: 'ERROR' });
-                }
-            } else {
-                showNotification("No se encontró ninguna partida guardada localmente.", { duration: 2000, sound: 'ERROR' });
-            }
-        } catch (error) {
-            console.error("Error loading game state locally:", error);
-            showNotification("Error al cargar la partida local.", { duration: 2000, sound: 'ERROR' });
-        }
-    }, [showNotification]);
-    
-    // Load game state from Redis on initial load
+    // Load game state on initial load when player name is set
     useEffect(() => {
+        if (!playerName) {
+            setIsLoading(false);
+            return;
+        };
+
         const initializeGame = async () => {
             setIsLoading(true);
-            const currentSessionId = getSessionId();
-            setSessionId(currentSessionId);
-            
             try {
-                const cloudState = await loadGameState();
+                const cloudState = await loadGameState(playerName);
                 if (cloudState) {
-                    const { x, y } = playerState; // Keep current position
+                    const { x, y } = playerState; // Keep initial position
                     setPlayerState({
                         ...cloudState.playerState,
                         x, y, // Restore non-persistent fields
@@ -366,22 +325,20 @@ isPausedRef.current = isGamePaused;
                     setMissions(cloudState.missions);
                     setDevOptionsUnlocked(cloudState.devOptions.devOptionsUnlocked);
                     setTeleporterEnabled(cloudState.devOptions.teleporterEnabled);
-                    showNotification("Progreso cargado desde la nube.", { duration: 2500 });
+                    showNotification(`¡Bienvenido de nuevo, ${playerName}! Cargando tu progreso.`, { duration: 2500 });
                 } else {
-                     // Fallback to local save if no cloud save exists
-                     handleLoadLocally();
+                    showNotification(`¡Bienvenido, ${playerName}! Empezando una nueva aventura.`, { duration: 2500 });
                 }
             } catch (error) {
-                console.warn("Could not load from cloud, trying local save.", error);
-                showNotification("No se pudo conectar a la nube. Cargando localmente...", { sound: 'ERROR'});
-                handleLoadLocally();
+                console.warn("Could not load from cloud.", error);
+                showNotification("No se pudo cargar el progreso. Empezando una nueva partida...", { sound: 'ERROR'});
             } finally {
                 setIsLoading(false);
             }
         };
 
         initializeGame();
-    }, []); // Empty dependency array ensures this runs only once on mount
+    }, [playerName]); 
 
     const openMissionChat = (mission: Mission) => {
         playSound('UI_CLICK');
@@ -1085,6 +1042,10 @@ isPausedRef.current = isGamePaused;
         return !obj.interiorId;
     });
 
+    if (!playerName) {
+        return <PlayerNamePrompt onNameSubmit={setPlayerName} />;
+    }
+
     if (isLoading) {
         return (
             <div className="app-container">
@@ -1333,9 +1294,7 @@ isPausedRef.current = isGamePaused;
                                     <button onClick={() => { setMenuView('missions'); playSound('UI_CLICK'); }}>Lista de Misiones</button>
                                     <button onClick={() => { setMenuView('skills'); playSound('UI_CLICK'); }}>Árbol de Habilidades</button>
                                     <button onClick={() => { setMenuView('map'); playSound('UI_CLICK'); }}>Mapa del Mundo</button>
-                                    <button onClick={handleSaveToCloud} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar en la Nube'}</button>
-                                    <button onClick={handleSaveLocally}>Guardar Localmente</button>
-                                    <button onClick={handleLoadLocally}>Cargar Localmente</button>
+                                    <button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Progreso'}</button>
                                 </div>
 
                                 <p className="game-version" onClick={handleVersionClick}>v{GAME_VERSION}</p>

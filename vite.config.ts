@@ -8,19 +8,11 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
-        proxy: {
-          '/redis-api': {
-            target: `https://redis-13842.crce202.eu-west-3-1.ec2.cloud.redislabs.com:13842`,
-            changeOrigin: true,
-            secure: false,
-            rewrite: (path) => path.replace(/^\/redis-api/, ''),
-          },
-        },
       },
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
       resolve: {
         alias: {

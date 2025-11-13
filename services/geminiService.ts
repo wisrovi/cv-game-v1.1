@@ -1,8 +1,10 @@
 
 
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { Mission, ChatMessage, PlayerState } from '../types';
 
+// FIX: The API key must be obtained from `process.env.API_KEY` as per the guidelines and the project's Vite configuration. `import.meta.env` was causing a TypeScript error and was not configured in vite.config.ts.
 export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const npcPersonas: { [key: string]: string } = {

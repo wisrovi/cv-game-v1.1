@@ -1,6 +1,7 @@
 
 
 
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { Mission, ChatMessage, PlayerState } from '../types';
 
@@ -19,7 +20,8 @@ export async function generateNpcDialogue(
   npcName: string, 
   mission: Mission,
   playerUpgrades: string[],
-  playerInventory: string[]
+  playerInventory: string[],
+  playerName: string
 ): Promise<string> {
   try {
     const persona = npcPersonas[npcName] || npcPersonas['default'];
@@ -33,7 +35,7 @@ export async function generateNpcDialogue(
         playerContext += `El jugador lleva estos objetos clave en su inventario: ${playerInventory.join(', ')}.\n`;
     }
 
-    const prompt = `Eres un personaje en un videojuego de CV interactivo. Tu nombre es ${npcName}.
+    const prompt = `Eres un personaje en un videojuego de CV interactivo. Tu nombre es ${npcName}. El nombre del jugador es ${playerName}.
 
 **Tu Personalidad:**
 ${persona}
@@ -44,11 +46,11 @@ El jugador está trabajando en la misión llamada "${mission.titulo}". Tienes qu
 **Concepto a Explicar:**
 "${missionContent}"
 
-${playerContext ? `**Contexto Adicional del Jugador:**\n${playerContext}Si es relevante y natural para tu personalidad, puedes hacer un comentario sutil sobre alguna de sus mejoras (ej. su velocidad, "¡Qué rápido te mueves!") o un objeto que lleven. ¡No lo fuerces si no encaja con la conversación principal!` : ''}
+${playerContext ? `**Contexto Adicional del Jugador:**\n${playerContext}Si es relevante y natural para tu personalidad, puedes hacer un comentario sutil sobre alguna de sus mejoras (ej. su velocidad, "¡Qué rápido te mueves, ${playerName}!") o un objeto que lleven. ¡No lo fuerces si no encaja con la conversación principal!` : ''}
 
 **Tu Tarea:**
 Genera un diálogo corto y atractivo (2-3 frases).
-1. Empieza con un saludo personalizado y en personaje.
+1. Empieza con un saludo personalizado y en personaje, usando el nombre del jugador si encaja.
 2. Introduce y explica el concepto de forma natural y concisa.
 3. ¡Sé memorable!`;
 

@@ -278,6 +278,21 @@ body {
 #wkafka_building { background: #0072B2; border-radius: 10px; }
 #wkafka_building::after { content: ''; position: absolute; top: -10px; left: 45%; width: 10%; height: 10px; background: #fff; }
 
+#delivery_point_wkafka {
+    background: #8B4513; /* Brown color like wml_building */
+    border: 3px solid #a0522d;
+    border-radius: 5px;
+}
+#delivery_point_wkafka::before {
+    content: '';
+    position: absolute;
+    top: 15%;
+    left: 10%;
+    right: 10%;
+    height: 10%;
+    background: rgba(255,255,255,0.1);
+}
+
 #wredis_building { background: #D55E00; border-radius: 50% 50% 0 0; }
 #wredis_building::before { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 10px; background: #333; }
 

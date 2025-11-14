@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill, PersistentState } from './types';
 import {
@@ -118,7 +119,7 @@ const App: React.FC = () => {
     const notificationTimeoutRef = useRef<number | null>(null);
     const versionClickTimeoutRef = useRef<number | null>(null);
     
-    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen;
+    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen || !playerName;
     const isPausedRef = useRef(isGamePaused);
 isPausedRef.current = isGamePaused;
     
@@ -132,7 +133,7 @@ isPausedRef.current = isGamePaused;
     gameObjectsRef.current = gameObjects;
     
     const getPersistentState = useCallback((): PersistentState => {
-        const { interactionTarget, isMoving, ...persistedPlayerState } = playerState;
+        const { x, y, interactionTarget, isMoving, ...persistedPlayerState } = playerState;
         return {
             playerState: persistedPlayerState,
             missions,
@@ -144,6 +145,7 @@ isPausedRef.current = isGamePaused;
     }, [playerState, missions, devOptionsUnlocked, teleporterEnabled]);
     
     const autoSave = useCallback(async () => {
+        if (!playerName) return;
         const currentState = getPersistentState();
         try {
             await saveGameState(currentState);
@@ -151,7 +153,7 @@ isPausedRef.current = isGamePaused;
         } catch (error) {
             console.error("Autosave failed:", error);
         }
-    }, [getPersistentState]);
+    }, [getPersistentState, playerName]);
 
     const handleNameSubmit = (name: string) => {
         localStorage.setItem(LOCAL_STORAGE_PLAYER_NAME_KEY, name);
@@ -217,13 +219,15 @@ isPausedRef.current = isGamePaused;
 
                  const newGems = { ...p.gems, [mission.color_gema]: (p.gems[mission.color_gema] || 0) + mission.recompensa_gemas };
                  let newXp = p.xp + mission.recompensa_xp * p.xpBoost;
-                 const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, p.level - 1);
+                 let xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, p.level - 1);
                  let newLevel = p.level;
-                 if (newXp >= xpToLevelUp) {
-                     newLevel++;
-                     newXp -= xpToLevelUp;
-                     showNotification(`¡Subiste de nivel! Nivel ${newLevel}`, { sound: 'UNLOCK' });
-                 }
+
+                 while (newXp >= xpToLevelUp) {
+                    newLevel++;
+                    newXp -= xpToLevelUp;
+                    xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, newLevel - 1);
+                    showNotification(`¡Subiste de nivel! Nivel ${newLevel}`, { sound: 'UNLOCK' });
+                }
                  return { ...p, coins: p.coins + finalCoinReward, xp: newXp, level: newLevel, gems: newGems };
             });
             
@@ -322,9 +326,9 @@ isPausedRef.current = isGamePaused;
                     setMissions(cloudState.missions);
                     setDevOptionsUnlocked(cloudState.devOptions.devOptionsUnlocked);
                     setTeleporterEnabled(cloudState.devOptions.teleporterEnabled);
-                    showNotification(`¡Bienvenido de nuevo! Cargando tu progreso.`, { duration: 2500 });
+                    showNotification(`¡Bienvenido de nuevo, ${playerName}! Cargando tu progreso.`, { duration: 2500 });
                 } else {
-                    showNotification(`¡Bienvenido! Empezando una nueva aventura.`, { duration: 2500 });
+                    showNotification(`¡Bienvenido, ${playerName}! Empezando una nueva aventura.`, { duration: 2500 });
                 }
             } catch (error) {
                 console.warn("Could not load progress.", error);
@@ -339,7 +343,7 @@ isPausedRef.current = isGamePaused;
         } else {
             setIsLoading(false);
         }
-    }, [playerName]); 
+    }, [playerName, showNotification]); 
 
     const openMissionChat = (mission: Mission) => {
         playSound('UI_CLICK');
@@ -381,128 +385,123 @@ isPausedRef.current = isGamePaused;
 
     const handleInteraction = useCallback(async () => {
         if (dialogue) { setDialogue(null); playSound('UI_CLICK'); return; }
-        
+    
         const target = playerState.interactionTarget;
         if (!target) return;
-
-        // --- Interior Logic ---
-        if (currentInterior) {
-            const exit = currentInterior.exit;
-            const dist = Math.hypot(
-                (exit.x + exit.width / 2) - (playerState.x + PLAYER_WIDTH / 2),
-                (exit.y + exit.height / 2) - (playerState.y + PLAYER_HEIGHT / 2)
-            );
-
-            if (dist < playerState.interactionRange) {
+    
+        // --- Handle Exiting an Interior ---
+        if (currentInterior && target.id === 'exit_door') {
+            playSound('DOOR');
+            const building = gameObjects.find(b => b.id === currentInterior.buildingId);
+            if (building && building.door) {
+                setPlayerState(prev => ({
+                    ...prev,
+                    x: building.x + building.door.x + (building.door.width / 2) - (PLAYER_WIDTH / 2),
+                    y: building.y + building.door.y + building.door.height + 5,
+                }));
+            }
+            setCurrentInterior(null);
+            return;
+        }
+    
+        // --- Handle Entering a Building ---
+        if (!currentInterior && target.type === 'building' && target.door) {
+            const interior = interiors.find(i => i.buildingId === target.id);
+            if (interior) {
                 playSound('DOOR');
-                const building = gameObjects.find(b => b.id === currentInterior.buildingId);
-                if (building && building.door) {
-                    setPlayerState(prev => ({
-                        ...prev,
-                        x: building.x + building.door.x,
-                        y: building.y + building.door.y + building.door.height,
-                    }));
-                }
-                setCurrentInterior(null);
+                setCurrentInterior(interior);
+                setPlayerState(prev => ({
+                    ...prev,
+                    x: interior.exit.x,
+                    y: interior.exit.y + interior.exit.height,
+                    interactionTarget: null
+                }));
             }
             return;
         }
-
-        // --- Exterior Logic ---
+        
+        // --- General Interactions (NPCs, Shop, etc that don't always advance missions) ---
         if (target.id === 'npc_ada') {
             setIsAdaChatOpen(true);
             playSound('DIALOGUE_START');
+            // Let handleCloseAdaChat advance mission if applicable
             return;
         }
-
+    
         if (target.id === 'npc_vincent') {
             setIsImageGeneratorOpen(true);
             playSound('UI_CLICK');
             return;
         }
         
-        if (target.type === 'building' && target.door) {
-            const door = target.door;
-            const doorWorldX = target.x + door.x;
-            const doorWorldY = target.y + door.y;
-
-            const dist = Math.hypot(
-                (doorWorldX + door.width / 2) - (playerState.x + PLAYER_WIDTH / 2),
-                (doorWorldY + door.height / 2) - (playerState.y + PLAYER_HEIGHT / 2)
-            );
-
-            if (dist < playerState.interactionRange) {
-                const interior = interiors.find(i => i.buildingId === target.id);
-                if (interior) {
-                    playSound('DOOR');
-                    setCurrentInterior(interior);
-                    setPlayerState(prev => ({
-                        ...prev,
-                        x: interior.exit.x,
-                        y: interior.exit.y + interior.exit.height,
-                        interactionTarget: null
-                    }));
-                }
-                return;
-            }
-        }
-
         if (target.id === 'npc_vendor') {
             setShopView('buy');
             playSound('UI_CLICK');
             return;
         }
-
+    
+        // --- Mission-related interactions (can happen anywhere, including interiors) ---
         const activeMission = missions.find(m => m.status === 'disponible');
         if (!activeMission) return;
-
+    
         const currentStep = activeMission.pasos[activeMission.paso_actual];
         if (!currentStep) return;
-
+    
         let actionTaken = false;
-
+    
         if (currentStep.tipo === 'interactuar' && currentStep.objetoId === target.id) {
+            if (currentStep.requiredItem) {
+                if (hasInventoryItem(currentStep.requiredItem)) {
+                    removeInventoryItem(currentStep.requiredItem);
+                    showNotification(`Has usado ${target.name}.`, { sound: 'PICKUP' });
+                } else {
+                    const requiredItemFromMissions = initialMissions.flatMap(m => m.pasos).find(p => p.itemId === currentStep.requiredItem);
+                    const requiredItemName = gameObjects.find(go => go.id === requiredItemFromMissions?.objetoId)?.name || 'un objeto';
+                    showNotification(`Necesitas ${requiredItemName}.`, { sound: 'ERROR' });
+                    return;
+                }
+            }
+    
             if (target.id === 'deployment_script' && activeMission.id === 10) {
                 setIsPuzzleActive(true);
                 playSound('UI_CLICK');
-                return;
+                return; // Mission is advanced on puzzle completion
             }
             
             if (target.type === 'npc') {
                 setDialogue({ npcName: target.name!, text: "Generando diálogo...", missionContent: activeMission.contenido_educativo });
                 playSound('DIALOGUE_START');
                 
-                const upgradeNames = playerState.upgrades.map(upgradeId => {
-                    const item = shopItems.find(si => si.id === upgradeId);
-                    return item ? item.name : '';
-                }).filter(name => name);
-    
+                const upgradeNames = playerState.upgrades.map(upgradeId => shopItems.find(si => si.id === upgradeId)?.name || '').filter(name => name);
                 const inventorySummary = playerState.inventory.map(item => item.name);
-                
-                const generatedText = await generateNpcDialogue(target.name!, activeMission, upgradeNames, inventorySummary);
+                const generatedText = await generateNpcDialogue(target.name!, activeMission, upgradeNames, inventorySummary, playerName || 'Jugador');
                 setDialogue({ npcName: target.name!, text: generatedText, missionContent: activeMission.contenido_educativo });
             }
             actionTaken = true;
+    
         } else if (currentStep.tipo === 'recoger' && currentStep.objetoId === target.id) {
             showNotification(`¡Has recogido ${target.name}!`, { sound: 'PICKUP' });
             addInventoryItem(currentStep.itemId!, target.name!, 1);
             setGameObjects(prev => prev.filter(obj => obj.id !== target.id));
             actionTaken = true;
+    
         } else if (currentStep.tipo === 'entregar') {
             const isTargetNpc = currentStep.zona?.startsWith('npc_');
-            const zone = gameObjects.find(g => g.id === currentStep.zona);
             let inZone = false;
-            
-            if (isTargetNpc && playerState.interactionTarget?.id === currentStep.zona) {
-                 inZone = true;
-            } else if (zone && playerState.x < zone.x + zone.width && playerState.x + PLAYER_WIDTH > zone.x &&
-                playerState.y < zone.y + zone.height && playerState.y + PLAYER_HEIGHT > zone.y) {
-                inZone = true;
+            if (isTargetNpc) {
+                inZone = playerState.interactionTarget?.id === currentStep.zona;
+            } else {
+                const zone = gameObjects.find(g => g.id === currentStep.zona);
+                if (zone) {
+                     inZone = playerState.x < zone.x + zone.width && playerState.x + PLAYER_WIDTH > zone.x &&
+                              playerState.y < zone.y + zone.height && playerState.y + PLAYER_HEIGHT > zone.y;
+                }
             }
-
+    
             if(inZone) {
                 if (currentStep.requiredItem && hasInventoryItem(currentStep.requiredItem)) {
                     removeInventoryItem(currentStep.requiredItem);
+                    const zone = gameObjects.find(g => g.id === currentStep.zona);
                     showNotification(`Has entregado el objeto a ${zone?.name || 'la zona'}.`, { sound: 'PICKUP' });
                     actionTaken = true;
                 } else {
@@ -510,11 +509,11 @@ isPausedRef.current = isGamePaused;
                 }
             }
         }
-
+    
         if (actionTaken) {
             advanceMissionStep(activeMission.id);
         }
-    }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior, gameObjects]);
+    }, [playerState, missions, dialogue, advanceMissionStep, showNotification, currentInterior, gameObjects, playerName, addInventoryItem, removeInventoryItem, hasInventoryItem]);
 
     const buyShopItem = (item: ShopItem) => {
         playSound('UI_CLICK');
@@ -807,15 +806,31 @@ isPausedRef.current = isGamePaused;
                     }
                     
                     let closestTarget: GameObject | null = null;
+                    let minDistance = Infinity;
                     
                     if (currentInterior) {
                         newX = Math.max(0, Math.min(newX, currentInterior.width - PLAYER_WIDTH));
                         newY = Math.max(0, Math.min(newY, currentInterior.height - PLAYER_HEIGHT));
+                        
+                        // Check exit door
                         const exit = currentInterior.exit;
-                        const dist = Math.hypot((exit.x + exit.width / 2) - (newX + PLAYER_WIDTH / 2), (exit.y + exit.height / 2) - (newY + PLAYER_HEIGHT / 2));
-                        if(dist < prev.interactionRange) {
+                        const exitDist = Math.hypot((exit.x + exit.width / 2) - (newX + PLAYER_WIDTH / 2), (exit.y + exit.height / 2) - (newY + PLAYER_HEIGHT / 2));
+                        if (exitDist < prev.interactionRange) {
+                            minDistance = exitDist;
                             closestTarget = { id: 'exit_door', name: 'Salir', type: 'object', ...exit };
                         }
+
+                        // Check other interior objects
+                        for (const obj of gameObjectsRef.current) {
+                            if (obj.interiorId === currentInterior.id) {
+                                const objDist = Math.hypot((obj.x + obj.width / 2) - (newX + PLAYER_WIDTH / 2), (obj.y + obj.height / 2) - (newY + PLAYER_HEIGHT / 2));
+                                if (objDist < prev.interactionRange && objDist < minDistance) {
+                                    minDistance = objDist;
+                                    closestTarget = obj;
+                                }
+                            }
+                        }
+
                     } else {
                         const checkCollision = (x: number, y: number) => {
                             for (const obj of gameObjectsRef.current) {
@@ -837,7 +852,6 @@ isPausedRef.current = isGamePaused;
                         newX = Math.max(0, Math.min(newX, WORLD_WIDTH - PLAYER_WIDTH));
                         newY = Math.max(0, Math.min(newY, WORLD_HEIGHT - PLAYER_HEIGHT));
                         
-                        let minDistance = Infinity;
                         for (const obj of gameObjectsRef.current) {
                             if (obj.type === 'npc' || obj.type === 'object' || obj.type === 'building') {
                                 if (obj.collectibleType) continue; // Do not set collectibles as interaction targets
@@ -984,7 +998,12 @@ isPausedRef.current = isGamePaused;
                 setIsMenuOpen(true);
                 setMenuView('main');
                 playSound('UI_CLICK');
-            } else {
+            } else if (e.key.toLowerCase() === 'b' && !currentInterior) {
+                setIsMenuOpen(true);
+                setMenuView('map');
+                playSound('UI_CLICK');
+            }
+            else {
                 const key = e.key.toLowerCase();
                 // Prevent default for movement keys to avoid scrolling the page
                 if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
@@ -1007,7 +1026,7 @@ isPausedRef.current = isGamePaused;
             if(notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
             if(versionClickTimeoutRef.current) clearTimeout(versionClickTimeoutRef.current);
         };
-    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, isImageGeneratorOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused]);
+    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, isImageGeneratorOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused, currentInterior]);
     
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
@@ -1074,6 +1093,7 @@ isPausedRef.current = isGamePaused;
                         <div className="interior-exit-door" style={{ left: currentInterior.exit.x, top: currentInterior.exit.y, width: currentInterior.exit.width, height: currentInterior.exit.height }}></div>
                          {objectsToRender.map(obj => (
                             <div key={obj.id} id={obj.id} className={`game-object ${obj.type} ${obj.collectibleType ? `collectible ${obj.collectibleType}` : ''}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, color: obj.gemColor, backgroundColor: obj.type !== 'npc' && !obj.gemColor ? obj.color : undefined }}>
+                                 {obj.name && <span className="object-name">{obj.name}</span>}
                             </div>
                         ))}
                         {poppingCollectiblesToRender.map(obj => (
@@ -1086,8 +1106,8 @@ isPausedRef.current = isGamePaused;
                             <div className="player-shadow"></div>
                         </div>
                         {playerState.interactionTarget && !isGamePaused && (
-                           <div className="interaction-prompt" style={{ left: playerState.interactionTarget.x, top: playerState.interactionTarget.y - 40, width: playerState.interactionTarget.width }}>
-                                <InteractIcon className="icon" /> [Espacio] {playerState.interactionTarget.name}
+                           <div className="interaction-prompt" style={{ left: playerState.interactionTarget.x + (playerState.interactionTarget.width / 2) - 70, top: playerState.interactionTarget.y - 40 }}>
+                                <InteractIcon className="icon" /> [Espacio] Interactuar
                             </div>
                         )}
                     </div>
@@ -1129,7 +1149,7 @@ isPausedRef.current = isGamePaused;
                                         </>
                                     )}
                                     {obj.type === 'building' && obj.door && <div className="building-door" style={{ left: obj.door.x, top: obj.door.y, width: obj.door.width, height: obj.door.height }} />}
-                                    {(obj.type === 'npc' || obj.type === 'building') && <span className="object-name">{obj.name}</span>}
+                                    {(obj.type === 'npc' || obj.type === 'building' || obj.name) && <span className="object-name">{obj.name}</span>}
                                 </div>
                             );
                         })}
@@ -1150,7 +1170,7 @@ isPausedRef.current = isGamePaused;
                                 left: playerState.interactionTarget.x + (playerState.interactionTarget.door?.x || 0),
                                 top: playerState.interactionTarget.y + (playerState.interactionTarget.door?.y || 0) - 40
                             }}>
-                                <InteractIcon className="icon" /> [Espacio] {playerState.interactionTarget.type === 'building' ? 'Entrar' : playerState.interactionTarget.name}
+                                <InteractIcon className="icon" /> [Espacio] {playerState.interactionTarget.type === 'building' ? 'Entrar' : 'Interactuar'}
                             </div>
                         )}
                         <div className="vignette"></div>
@@ -1185,18 +1205,20 @@ isPausedRef.current = isGamePaused;
             
             <div className="ui-container">
                 <div className="hud-column left">
-                    <MissionArrow 
-                        playerX={playerState.x + PLAYER_WIDTH / 2}
-                        playerY={playerState.y + PLAYER_HEIGHT / 2}
-                        targetX={missionTarget ? missionTarget.x + missionTarget.width / 2 : null}
-                        targetY={missionTarget ? missionTarget.y + missionTarget.height / 2 : null}
-                        isMinimized={!showHud}
-                    />
+                    {showHud && (
+                         <MissionArrow 
+                            playerX={playerState.x + PLAYER_WIDTH / 2}
+                            playerY={playerState.y + PLAYER_HEIGHT / 2}
+                            targetX={missionTarget ? missionTarget.x + missionTarget.width / 2 : null}
+                            targetY={missionTarget ? missionTarget.y + missionTarget.height / 2 : null}
+                            isMinimized={false}
+                        />
+                    )}
                 </div>
 
                 <div className="hud-column right">
-                    {activeMission && !currentInterior && (
-                        <div className={`mission-tracker hud-box ${!showHud ? 'minimized' : ''}`}>
+                    {activeMission && !currentInterior && showHud && (
+                        <div className={`mission-tracker hud-box`}>
                             <h3>{activeMission.titulo}</h3>
                             <p>{activeMission.pasos[activeMission.paso_actual]?.descripcion || "¡Misión completada!"}</p>
                         </div>
@@ -1216,7 +1238,7 @@ isPausedRef.current = isGamePaused;
                <div className="controls-overlay">
                    <div className="hud-box">
                         <h4>Controles</h4>
-                        <p className="controls-text"><b>WASD/Flechas:</b> Mover<br/><b>Espacio:</b> Interactuar<br/><b>I:</b> Inventario / <b>M:</b> Menú<br/><b>Esc:</b> Cerrar</p>
+                        <p className="controls-text"><b>WASD/Flechas:</b> Mover<br/><b>Espacio:</b> Interactuar<br/><b>I:</b> Inventario / <b>M:</b> Menú / <b>B:</b> Mapa<br/><b>Esc:</b> Cerrar</p>
                         <p className="controls-text hint">Pulsa <b>'H'</b> para ocultar la ayuda.</p>
                     </div>
                 </div>
@@ -1257,9 +1279,10 @@ isPausedRef.current = isGamePaused;
                         )}
                         {shopView === 'sell' && (
                             <div className="item-list">
-                                {Object.keys(playerState.gems).length > 0 ? Object.keys(playerState.gems).map(color => {
-                                    const amount = playerState.gems[color];
-                                    return amount > 0 && (
+                                {Object.keys(playerState.gems).length > 0 ? Object.entries(playerState.gems).map(([color, amount]) => {
+                                    // FIX: The error on line 1282 is likely misreported. The actual error is probably here, where `amount`
+                                    // can be inferred as `unknown`. Explicitly casting to `number` fixes the comparison.
+                                    return (amount as number) > 0 && (
                                         <div key={color} className="list-item">
                                             <div style={{display: 'flex', alignItems: 'center'}}>
                                                 <GemIcon className="gem-icon" color={color} />

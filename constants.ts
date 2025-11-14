@@ -125,6 +125,9 @@ const initialGameObjects: GameObject[] = [
   { id: 'api_key_card', x: 2150, y: 1460, width: 20, height: 20, type: 'object', name: 'Tarjeta de Clave API', color: '#607D8B' },
   { id: 'auth_token_disk', x: 250, y: 1240, width: 25, height: 25, type: 'object', name: 'Disco de Token', color: '#E0E0E0' },
   { id: 'deployment_script', x: 1450, y: 1550, width: 30, height: 30, type: 'object', name: 'Script de Despliegue', color: '#9370DB' },
+  
+  // Interior objects
+  { id: 'delivery_point_wkafka', x: 100, y: 150, width: 80, height: 40, type: 'object', name: 'Mesa de Trabajo', interiorId: 'wkafka_interior' },
 ];
 
 export const missions: Mission[] = [
@@ -158,7 +161,7 @@ export const missions: Mission[] = [
     "pasos": [
       { "descripcion": "Habla con Charles, el Ingeniero.", "tipo": "interactuar", "objetoId": "npc_charles" },
       { "descripcion": "Dirígete al Taller de Audio y recoge el Chip de Configuración WKafka.", "tipo": "recoger", "objetoId": "chip_wkafka_1", "itemId": "chip_wkafka_1" },
-      { "descripcion": "Entrega el chip en el Taller de Audio (acércate al edificio).", "tipo": "entregar", "requiredItem": "chip_wkafka_1", "zona": "wkafka_building" }
+      { "descripcion": "Entra en el Taller de Audio y usa el chip en la Mesa de Trabajo.", "tipo": "interactuar", "requiredItem": "chip_wkafka_1", "objetoId": "delivery_point_wkafka" }
     ],
     "contenido_educativo": "WKafka es una implementación optimizada de Apache Kafka, diseñada para procesamiento de streams de datos en tiempo real con latencias inferiores a 10ms.",
     "paso_actual": 0
@@ -328,8 +331,9 @@ const GEM_COLORS = ["#FF5733", "#33FF57", "#3357FF", "#FF33A1", "#F1C40F", "#9B5
 
 // Helper to check for collisions with a given list of objects
 const isColliding = (x: number, y: number, width: number, height: number, objectList: GameObject[]) => {
+    const margin = 20; // Don't spawn collectibles too close to other objects
     for (const obj of objectList) {
-        if (x < obj.x + obj.width && x + width > obj.x && y < obj.y + obj.height && y + height > obj.y) {
+        if (x < obj.x + obj.width + margin && x + width + margin > obj.x && y < obj.y + obj.height + margin && y + height + margin > obj.y) {
             return true;
         }
     }

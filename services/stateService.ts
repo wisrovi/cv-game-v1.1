@@ -1,53 +1,59 @@
 import { PersistentState } from '../types';
 
-// FIX: The build environment cannot correctly read tsconfig.json to inject credentials.
-// To resolve the `JSON.parse(undefined)` error, credentials are now hardcoded here
-// as a last resort, since direct file system access is failing in this context.
-const redisConfig = {
-  "host": "redis-13842.crce202.eu-west-3-1.ec2.cloud.redislabs.com",
-  "port": 13842,
-  "username": "default",
-  "password": "Qi96GKmYEXR2WZ32JObZYB09giLHJyPD"
-};
+const SESSION_STORAGE_KEY = 'wisrovi-cv-session-id';
 
+function getSessionId(): string {
+  let sessionId = localStorage.getItem(SESSION_STORAGE_KEY);
+  if (!sessionId) {
+    // Basic UUID generator
+    sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+    localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  }
+  return sessionId;
+}
+
+const redisConfig = {
+  host: "simulated-redis.local",
+  port: 6379,
+  username: "default-user",
+  password: "placeholder-password"
+};
 
 console.log(`Simulating connection to Redis at ${redisConfig.host}:${redisConfig.port}`);
 
-
 /**
- * Simulates saving the game state to a backend API that uses Redis, keyed by player name.
+ * Simulates saving the game state to a backend API that uses Redis, keyed by a persistent session ID.
  * @param state The persistent state of the game to save.
  */
-export async function saveGameState(playerName: string, state: PersistentState): Promise<void> {
-    if (!playerName) {
-        throw new Error("Player name is required to save game state.");
-    }
-    console.log(`Simulating Redis SET for player: ${playerName}`);
+export async function saveGameState(state: PersistentState): Promise<void> {
+    const sessionId = getSessionId();
+    console.log(`Simulating Redis SET for session: ${sessionId}`);
     
     // This simulates an async network call to a backend.
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // The backend would perform: `redis.set(`player:${playerName}`, JSON.stringify(state))`
+    // The backend would perform: `redis.set(`session:${sessionId}`, JSON.stringify(state))`
     // Here, we use localStorage to achieve the same persistence goal in the browser.
-    localStorage.setItem(`redis-save-${playerName}`, JSON.stringify(state));
+    localStorage.setItem(`redis-save-${sessionId}`, JSON.stringify(state));
 }
 
 /**
- * Simulates loading the game state from a backend API that uses Redis, keyed by player name.
+ * Simulates loading the game state from a backend API that uses Redis, keyed by a persistent session ID.
  * @returns The loaded PersistentState or null if not found.
  */
-export async function loadGameState(playerName: string): Promise<PersistentState | null> {
-    if (!playerName) {
-        throw new Error("Player name is required to load game state.");
-    }
-    console.log(`Simulating Redis GET for player: ${playerName}`);
+export async function loadGameState(): Promise<PersistentState | null> {
+    const sessionId = getSessionId();
+    console.log(`Simulating Redis GET for session: ${sessionId}`);
 
     // This simulates an async network call to a backend.
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    // The backend would perform: `const data = await redis.get(`player:${playerName}`)`
+    // The backend would perform: `const data = await redis.get(`session:${sessionId}`)`
     // Here, we use localStorage.
-    const savedData = localStorage.getItem(`redis-save-${playerName}`);
+    const savedData = localStorage.getItem(`redis-save-${sessionId}`);
     
     if (savedData) {
         try {

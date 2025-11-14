@@ -40,7 +40,7 @@ export interface PlayerState {
 }
 
 // State that gets saved to Redis (omits transient data like position)
-export type PersistentPlayerState = Omit<PlayerState, 'x' | 'y' | 'interactionTarget' | 'isMoving'>;
+export type PersistentPlayerState = Omit<PlayerState, 'interactionTarget' | 'isMoving'>;
 
 export interface PersistentState {
     playerState: PersistentPlayerState;

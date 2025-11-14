@@ -1,3 +1,4 @@
+
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -24,15 +25,6 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true,
-    // WARNING: Storing credentials in source code is highly insecure.
-    // This is added based on explicit user request and assumption of responsibility.
-    // In a real-world application, these should be handled securely on a backend server.
-    "redisCredentials": {
-      "host": "redis-13842.crce202.eu-west-3-1.ec2.cloud.redislabs.com",
-      "port": 13842,
-      "username": "default",
-      "password": "Qi96GKmYEXR2WZ32JObZYB09giLHJyPD"
-    }
+    "noEmit": true
   }
 }

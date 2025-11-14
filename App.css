@@ -42,9 +42,6 @@ body {
   box-shadow: 0 0 30px rgba(0, 170, 255, 0.3);
   border: 2px solid var(--ui-border);
   border-radius: 15px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   background-color: #000;
 }
 

@@ -14,7 +14,7 @@ export const MINIMAP_SIZE = 180;
 
 
 export const INITIAL_XP_TO_LEVEL_UP = 100;
-export const GAME_VERSION = '1.2.0';
+export const GAME_VERSION = '1.2.1';
 export const GEM_SELL_VALUE = 50;
 export const COLLECTIBLE_RESPAWN_TIME = 30000; // 30 seconds
 

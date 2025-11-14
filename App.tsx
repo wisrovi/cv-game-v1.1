@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill, PersistentState } from './types';
 import {
@@ -64,12 +61,14 @@ interface NotificationOptions {
   sound?: keyof typeof soundLibrary;
 }
 
+const LOCAL_STORAGE_PLAYER_NAME_KEY = 'wisrovi-cv-last-player';
+
 
 const App: React.FC = () => {
-    const [playerName, setPlayerName] = useState<string | null>(null);
+    const [playerName, setPlayerName] = useState<string | null>(() => localStorage.getItem(LOCAL_STORAGE_PLAYER_NAME_KEY));
     const [playerState, setPlayerState] = useState<PlayerState>({
-        x: 1100,
-        y: 1450,
+        x: WORLD_WIDTH / 2 - PLAYER_WIDTH / 2,
+        y: WORLD_HEIGHT / 2 - PLAYER_HEIGHT / 2,
         level: 1,
         xp: 0,
         coins: 50,
@@ -133,9 +132,9 @@ isPausedRef.current = isGamePaused;
     gameObjectsRef.current = gameObjects;
     
     const getPersistentState = useCallback((): PersistentState => {
-        const { x, y, interactionTarget, isMoving, ...parsistedPlayerState } = playerState;
+        const { interactionTarget, isMoving, ...persistedPlayerState } = playerState;
         return {
-            playerState: parsistedPlayerState,
+            playerState: persistedPlayerState,
             missions,
             devOptions: {
                 devOptionsUnlocked,
@@ -145,15 +144,19 @@ isPausedRef.current = isGamePaused;
     }, [playerState, missions, devOptionsUnlocked, teleporterEnabled]);
     
     const autoSave = useCallback(async () => {
-        if (!playerName) return;
         const currentState = getPersistentState();
         try {
-            await saveGameState(playerName, currentState);
+            await saveGameState(currentState);
             console.log("Autosave successful.");
         } catch (error) {
             console.error("Autosave failed:", error);
         }
-    }, [getPersistentState, playerName]);
+    }, [getPersistentState]);
+
+    const handleNameSubmit = (name: string) => {
+        localStorage.setItem(LOCAL_STORAGE_PLAYER_NAME_KEY, name);
+        setPlayerName(name);
+    };
 
 
     useEffect(() => {
@@ -289,11 +292,10 @@ isPausedRef.current = isGamePaused;
 
     // Save/Load Logic
     const handleSave = useCallback(async () => {
-        if (!playerName) return;
         playSound('UI_CLICK');
         setIsSaving(true);
         try {
-            await saveGameState(playerName, getPersistentState());
+            await saveGameState(getPersistentState());
             showNotification("¡Progreso guardado!", { duration: 2000 });
         } catch (error) {
             console.error("Error saving game state:", error);
@@ -301,43 +303,42 @@ isPausedRef.current = isGamePaused;
         } finally {
             setIsSaving(false);
         }
-    }, [getPersistentState, showNotification, playerName]);
+    }, [getPersistentState, showNotification]);
 
-    // Load game state on initial load when player name is set
+    // Load game state on initial load
     useEffect(() => {
-        if (!playerName) {
-            setIsLoading(false);
-            return;
-        };
-
         const initializeGame = async () => {
             setIsLoading(true);
             try {
-                const cloudState = await loadGameState(playerName);
+                const cloudState = await loadGameState();
                 if (cloudState) {
-                    const { x, y } = playerState; // Keep initial position
-                    setPlayerState({
+                    setPlayerState(prevState => ({
+                        ...prevState,
                         ...cloudState.playerState,
-                        x, y, // Restore non-persistent fields
+                        // Restore non-persistent fields
                         interactionTarget: null,
                         isMoving: false,
-                    });
+                    }));
                     setMissions(cloudState.missions);
                     setDevOptionsUnlocked(cloudState.devOptions.devOptionsUnlocked);
                     setTeleporterEnabled(cloudState.devOptions.teleporterEnabled);
-                    showNotification(`¡Bienvenido de nuevo, ${playerName}! Cargando tu progreso.`, { duration: 2500 });
+                    showNotification(`¡Bienvenido de nuevo! Cargando tu progreso.`, { duration: 2500 });
                 } else {
-                    showNotification(`¡Bienvenido, ${playerName}! Empezando una nueva aventura.`, { duration: 2500 });
+                    showNotification(`¡Bienvenido! Empezando una nueva aventura.`, { duration: 2500 });
                 }
             } catch (error) {
-                console.warn("Could not load from cloud.", error);
+                console.warn("Could not load progress.", error);
                 showNotification("No se pudo cargar el progreso. Empezando una nueva partida...", { sound: 'ERROR'});
             } finally {
                 setIsLoading(false);
             }
         };
 
-        initializeGame();
+        if (playerName) {
+            initializeGame();
+        } else {
+            setIsLoading(false);
+        }
     }, [playerName]); 
 
     const openMissionChat = (mission: Mission) => {
@@ -1011,8 +1012,15 @@ isPausedRef.current = isGamePaused;
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
 
-    const cameraX = Math.max(0, Math.min(playerState.x + PLAYER_WIDTH / 2 - viewportSize.width / 2, WORLD_WIDTH - viewportSize.width));
-    const cameraY = Math.max(0, Math.min(playerState.y + PLAYER_HEIGHT / 2 - viewportSize.height / 2, WORLD_HEIGHT - viewportSize.height));
+    // Camera logic:
+    // 1. Calculate the camera's ideal top-left position to center the player.
+    let cameraX = playerState.x + PLAYER_WIDTH / 2 - viewportSize.width / 2;
+    let cameraY = playerState.y + PLAYER_HEIGHT / 2 - viewportSize.height / 2;
+
+    // 2. Clamp the camera's position so its view doesn't go outside the world boundaries.
+    cameraX = Math.max(0, Math.min(cameraX, WORLD_WIDTH - viewportSize.width));
+    cameraY = Math.max(0, Math.min(cameraY, WORLD_HEIGHT - viewportSize.height));
+
 
     let missionTarget: GameObject | null = null;
     if (activeMission && !currentInterior) {
@@ -1043,7 +1051,7 @@ isPausedRef.current = isGamePaused;
     });
 
     if (!playerName) {
-        return <PlayerNamePrompt onNameSubmit={setPlayerName} />;
+        return <PlayerNamePrompt onNameSubmit={handleNameSubmit} />;
     }
 
     if (isLoading) {
@@ -1193,7 +1201,7 @@ isPausedRef.current = isGamePaused;
                             <p>{activeMission.pasos[activeMission.paso_actual]?.descripcion || "¡Misión completada!"}</p>
                         </div>
                     )}
-                    {!currentInterior && showHud && (
+                    {!currentInterior && (
                         <Minimap
                             playerState={playerState}
                             gameObjects={gameObjects}

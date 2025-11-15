@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill, PersistentState } from './types';
 import {
@@ -36,6 +33,7 @@ import DeployPuzzle from './components/DeployPuzzle';
 import ImageGenerator from './components/ImageGenerator';
 import PlayerNamePrompt from './components/PlayerNamePrompt';
 import Shop from './components/Shop';
+import FlyingCollectible from './components/FlyingCollectible';
 import './App.css';
 
 interface MissionArrowProps {
@@ -104,7 +102,7 @@ const App: React.FC = () => {
     const [isAdaChatOpen, setIsAdaChatOpen] = useState(false);
     const [isImageGeneratorOpen, setIsImageGeneratorOpen] = useState(false);
     const [currentInterior, setCurrentInterior] = useState<Interior | null>(null);
-    const [poppingCollectibles, setPoppingCollectibles] = useState<GameObject[]>([]);
+    const [animatingCollectibles, setAnimatingCollectibles] = useState<any[]>([]);
     const [viewportSize, setViewportSize] = useState({ width: BASE_VIEWPORT_WIDTH, height: BASE_VIEWPORT_HEIGHT });
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -124,6 +122,10 @@ const App: React.FC = () => {
     const lastTimeRef = useRef<number>(performance.now());
     const notificationTimeoutRef = useRef<number | null>(null);
     const versionClickTimeoutRef = useRef<number | null>(null);
+    const newlyCollected = useRef<GameObject[]>([]);
+    const gameViewportRef = useRef<HTMLDivElement>(null);
+    const coinHudRef = useRef<HTMLDivElement>(null);
+    const gemHudRefContainer = useRef<HTMLDivElement>(null);
     
     const isGamePaused = dialogue || isShopOpen || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen || !playerName;
     const isPausedRef = useRef(isGamePaused);
@@ -928,6 +930,8 @@ isPausedRef.current = isGamePaused;
                     
                     if (collectedThisFrame.length > 0) {
                         playSound('PICKUP');
+                        newlyCollected.current.push(...collectedThisFrame);
+
                         let finalCoinsGained = coinsGained;
                         let wasDoubled = false;
                         if (coinsGained > 0 && Math.random() < prev.coinDoublerChance) {
@@ -961,13 +965,6 @@ isPausedRef.current = isGamePaused;
                         });
 
                          setGameObjects(remainingGameObjects);
-                         setPoppingCollectibles(prevPopping => [...prevPopping, ...collectedThisFrame]);
-                         collectedThisFrame.forEach(obj => {
-                            setTimeout(() => {
-                                setPoppingCollectibles(currentPopping => currentPopping.filter(p => p.id !== obj.id));
-                            }, 500);
-                         });
-
                          if (finalCoinsGained > 0) showNotification(`+${finalCoinsGained} moneda${finalCoinsGained > 1 ? 's' : ''}!${wasDoubled ? ' (x2!)' : ''}`, { duration: 1000 });
                          const numGems = Object.values(gemsGained).reduce((a, b) => a + b, 0);
                          if (numGems > 0) showNotification(`+${numGems} gema!`, { duration: 1000 });
@@ -990,6 +987,45 @@ isPausedRef.current = isGamePaused;
             if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
         };
     }, [currentInterior, showNotification]);
+
+    // Camera logic:
+    // 1. Calculate the camera's ideal top-left position to center the player.
+    let cameraX = playerState.x + PLAYER_WIDTH / 2 - viewportSize.width / 2;
+    let cameraY = playerState.y + PLAYER_HEIGHT / 2 - viewportSize.height / 2;
+
+    // 2. Clamp the camera's position so its view doesn't go outside the world boundaries.
+    cameraX = Math.max(0, Math.min(cameraX, WORLD_WIDTH - viewportSize.width));
+    cameraY = Math.max(0, Math.min(cameraY, WORLD_HEIGHT - viewportSize.height));
+
+    useEffect(() => {
+        if (newlyCollected.current.length > 0) {
+            const viewportRect = gameViewportRef.current?.getBoundingClientRect();
+            if (viewportRect) {
+                const newAnimations = newlyCollected.current.map(obj => {
+                    const targetRef = obj.collectibleType === 'coin' ? coinHudRef : gemHudRefContainer;
+                    const targetRect = targetRef.current?.getBoundingClientRect();
+                    
+                    const fromX = viewportRect.left + (obj.x - cameraX) + (obj.width / 2);
+                    const fromY = viewportRect.top + (obj.y - cameraY) + (obj.height / 2);
+                    
+                    const toX = targetRect ? targetRect.left + targetRect.width / 2 : viewportRect.left + viewportRect.width / 2;
+                    const toY = targetRect ? targetRect.top + targetRect.height / 2 : viewportRect.top + 20;
+
+                    return {
+                        id: `${obj.id}-${Date.now()}-${Math.random()}`,
+                        from: { x: fromX, y: fromY },
+                        to: { x: toX, y: toY },
+                        type: obj.collectibleType,
+                        gemColor: obj.gemColor,
+                    };
+                });
+    
+                setAnimatingCollectibles(prev => [...prev, ...newAnimations]);
+            }
+            newlyCollected.current = [];
+        }
+    }, [playerState, cameraX, cameraY]);
+
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -1062,16 +1098,6 @@ isPausedRef.current = isGamePaused;
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
 
-    // Camera logic:
-    // 1. Calculate the camera's ideal top-left position to center the player.
-    let cameraX = playerState.x + PLAYER_WIDTH / 2 - viewportSize.width / 2;
-    let cameraY = playerState.y + PLAYER_HEIGHT / 2 - viewportSize.height / 2;
-
-    // 2. Clamp the camera's position so its view doesn't go outside the world boundaries.
-    cameraX = Math.max(0, Math.min(cameraX, WORLD_WIDTH - viewportSize.width));
-    cameraY = Math.max(0, Math.min(cameraY, WORLD_HEIGHT - viewportSize.height));
-
-
     let missionTarget: GameObject | null = null;
     if (activeMission && !currentInterior) {
         let stepIndex = activeMission.paso_actual;
@@ -1116,12 +1142,9 @@ isPausedRef.current = isGamePaused;
         return !obj.interiorId;
     });
     
-    const poppingCollectiblesToRender = poppingCollectibles.filter(obj => {
-         if (currentInterior) {
-            return obj.interiorId === currentInterior.id;
-        }
-        return !obj.interiorId;
-    });
+    const handleAnimationEnd = (id: string) => {
+        setAnimatingCollectibles(prev => prev.filter(c => c.id !== id));
+    };
 
     if (!playerName) {
         return <PlayerNamePrompt onNameSubmit={handleNameSubmit} />;
@@ -1141,7 +1164,7 @@ isPausedRef.current = isGamePaused;
     return (
         <div className="app-container">
             {isTeleporting && <div className="teleport-overlay"></div>}
-            <div className="game-viewport" style={{ width: viewportSize.width, height: viewportSize.height }}>
+            <div ref={gameViewportRef} className="game-viewport" style={{ width: viewportSize.width, height: viewportSize.height }}>
                 {currentInterior ? (
                     <div className="interior-view" style={{ width: currentInterior.width, height: currentInterior.height }}>
                         <div className="interior-exit-door" style={{ left: currentInterior.exit.x, top: currentInterior.exit.y, width: currentInterior.exit.width, height: currentInterior.exit.height }}></div>
@@ -1149,9 +1172,6 @@ isPausedRef.current = isGamePaused;
                             <div key={obj.id} id={obj.id} className={`game-object ${obj.type} ${obj.collectibleType ? `collectible ${obj.collectibleType}` : ''}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, color: obj.gemColor, backgroundColor: obj.type !== 'npc' && !obj.gemColor ? obj.color : undefined }}>
                                  {obj.name && <span className="object-name">{obj.name}</span>}
                             </div>
-                        ))}
-                        {poppingCollectiblesToRender.map(obj => (
-                            <div key={`pop-${obj.id}`} className={`collectible-pop ${obj.collectibleType}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, backgroundColor: obj.collectibleType === 'coin' ? '#FFD700' : obj.gemColor, color: obj.collectibleType === 'gem' ? obj.gemColor : '#FFD700' }} />
                         ))}
                         <div className={playerClasses} style={{ left: playerState.x, top: playerState.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }}>
                             <div className="player-body">
@@ -1208,10 +1228,6 @@ isPausedRef.current = isGamePaused;
                             );
                         })}
                         
-                        {poppingCollectiblesToRender.map(obj => (
-                            <div key={`pop-${obj.id}`} className={`collectible-pop ${obj.collectibleType}`} style={{ left: obj.x, top: obj.y, width: obj.width, height: obj.height, backgroundColor: obj.collectibleType === 'coin' ? '#FFD700' : obj.gemColor, color: obj.collectibleType === 'gem' ? obj.gemColor : '#FFD700' }} />
-                        ))}
-
                         <div className={playerClasses} style={{ left: playerState.x, top: playerState.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }}>
                             <div className="player-body">
                                 <div className="player-cockpit"></div>
@@ -1245,10 +1261,14 @@ isPausedRef.current = isGamePaused;
                             </div>
                         </div>
                         <div className="currency-top">
-                            <CoinIcon className="icon" /> {playerState.coins}
-                            {Object.entries(playerState.gems).map(([color, amount]) => (
-                                <div key={color} className="gem-display"><GemIcon className="icon" color={color} /> {amount}</div>
-                            ))}
+                            <div ref={coinHudRef} className="coin-display">
+                                <CoinIcon className="icon" /> {playerState.coins}
+                            </div>
+                            <div ref={gemHudRefContainer}>
+                                {Object.entries(playerState.gems).map(([color, amount]) => (
+                                    <div key={color} className="gem-display"><GemIcon className="icon" color={color} /> {amount}</div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                     <button className="hud-button" onClick={() => { setIsMenuOpen(true); setMenuView('main'); playSound('UI_CLICK'); }} aria-label="Abrir menú">
@@ -1447,6 +1467,18 @@ isPausedRef.current = isGamePaused;
             )}
 
             {notification && <div className="notification">{notification}</div>}
+
+            {animatingCollectibles.map(c => (
+                <FlyingCollectible
+                    key={c.id}
+                    id={c.id}
+                    from={c.from}
+                    to={c.to}
+                    type={c.type}
+                    gemColor={c.gemColor}
+                    onEnd={handleAnimationEnd}
+                />
+            ))}
         </div>
     );
 };

@@ -1043,11 +1043,34 @@ isPausedRef.current = isGamePaused;
 
     let missionTarget: GameObject | null = null;
     if (activeMission && !currentInterior) {
-        const currentStep = activeMission.pasos[activeMission.paso_actual];
-        if (currentStep) {
-            const targetId = currentStep.tipo === 'entregar' ? currentStep.zona : currentStep.objetoId;
-            if (targetId) {
-                missionTarget = gameObjects.find(obj => obj.id === targetId) || null;
+        let stepIndex = activeMission.paso_actual;
+        let targetObject: GameObject | null = null;
+
+        // Find the next step with a physical target in the current mission
+        while(stepIndex < activeMission.pasos.length) {
+            const step = activeMission.pasos[stepIndex];
+            if (step) {
+                const targetId = step.tipo === 'entregar' ? step.zona : step.objetoId;
+                if (targetId) {
+                    targetObject = gameObjects.find(obj => obj.id === targetId) || null;
+                    if (targetObject) {
+                        break; // Found a target
+                    }
+                }
+            }
+            stepIndex++;
+        }
+        
+        if (targetObject) {
+            if (targetObject.interiorId) {
+                // If target is inside, point to the building instead
+                const interior = interiors.find(i => i.id === targetObject.interiorId);
+                if (interior) {
+                    const building = gameObjects.find(b => b.id === interior.buildingId);
+                    missionTarget = building || null;
+                }
+            } else {
+                missionTarget = targetObject;
             }
         }
     }

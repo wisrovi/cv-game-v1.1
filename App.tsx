@@ -1205,15 +1205,7 @@ isPausedRef.current = isGamePaused;
             
             <div className="ui-container">
                 <div className="hud-column left">
-                    {showHud && (
-                         <MissionArrow 
-                            playerX={playerState.x + PLAYER_WIDTH / 2}
-                            playerY={playerState.y + PLAYER_HEIGHT / 2}
-                            targetX={missionTarget ? missionTarget.x + missionTarget.width / 2 : null}
-                            targetY={missionTarget ? missionTarget.y + missionTarget.height / 2 : null}
-                            isMinimized={false}
-                        />
-                    )}
+                    {/* Mission Arrow has been moved outside to be always visible */}
                 </div>
 
                 <div className="hud-column right">
@@ -1233,6 +1225,14 @@ isPausedRef.current = isGamePaused;
                     )}
                 </div>
             </div>
+
+            <MissionArrow 
+                playerX={playerState.x + PLAYER_WIDTH / 2}
+                playerY={playerState.y + PLAYER_HEIGHT / 2}
+                targetX={missionTarget ? missionTarget.x + missionTarget.width / 2 : null}
+                targetY={missionTarget ? missionTarget.y + missionTarget.height / 2 : null}
+                isMinimized={false}
+            />
 
             {showHud && !isGamePaused && !currentInterior && (
                <div className="controls-overlay">

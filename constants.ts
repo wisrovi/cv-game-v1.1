@@ -169,8 +169,8 @@ export const missions: Mission[] = [
   },
     {
     "id": 3,
-    "titulo": "Mapa de clúster Redis",
-    "descripcion": "Lee el panel del Redis Hub y aprende sobre su arquitectura de caché distribuida.",
+    "titulo": "Explorar Mapa del Clúster Redis",
+    "descripcion": "Aprende sobre la arquitectura de caché distribuida del Redis Hub.",
     "recompensa_gemas": 2,
     "color_gema": "#2ecc71",
     "recompensa_monedas": 30,
@@ -178,7 +178,7 @@ export const missions: Mission[] = [
     "referencia": "https://github.com/wisrovi/wredis",
     "status": "bloqueada",
     "pasos": [
-      { "descripcion": "Viaja al Redis Hub. Busca el edificio con la estructura hexagonal.", "tipo": "info" },
+      { "descripcion": "Viaja al Redis Hub.", "tipo": "info" },
       { "descripcion": "Interactúa con el Panel del Mapa del Clúster.", "tipo": "interactuar", "objetoId": "panel_redis_map_1" }
     ],
     "contenido_educativo": "WRedis extiende Redis con capacidades avanzadas de clustering y persistencia, permitiendo escalado horizontal con particionado automático.",

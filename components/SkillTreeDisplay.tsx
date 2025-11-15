@@ -1,7 +1,7 @@
 import React from 'react';
 import { PlayerState, Skill, SkillCost } from '../types';
 import { skillTree } from '../constants';
-import { CoinIcon, GemIcon, LockIcon, XPIcon, InteractIcon } from './Icons';
+import { CoinIcon, GemIcon, LockIcon, XPIcon, InteractIcon, PriceTagIcon, TeleportIcon } from './Icons';
 
 interface SkillTreeDisplayProps {
     playerState: PlayerState;
@@ -58,6 +58,8 @@ const SkillNode: React.FC<{ skill: Skill; playerState: PlayerState; onUnlock: ()
             case 'coin': return <CoinIcon className="icon coin-icon" />;
             case 'gem': return <GemIcon className="icon" />;
             case 'xp': return <XPIcon className="icon xp-icon" />;
+            case 'price_tag': return <PriceTagIcon className="icon" style={{ stroke: '#f1c40f' }} />;
+            case 'teleport': return <TeleportIcon className="icon" />;
             default: return null;
         }
     };
@@ -85,21 +87,29 @@ const SkillNode: React.FC<{ skill: Skill; playerState: PlayerState; onUnlock: ()
 };
 
 const SkillTreeDisplay: React.FC<SkillTreeDisplayProps> = ({ playerState, onUnlockSkill }) => {
-    const tiers: { [key: number]: Skill[] } = {};
+    const branches: { [key: string]: Skill[] } = {
+        mobility: [],
+        economy: [],
+    };
+
     skillTree.forEach(skill => {
-        if (!tiers[skill.tier]) {
-            tiers[skill.tier] = [];
+        if (branches[skill.branch]) {
+            branches[skill.branch].push(skill);
         }
-        tiers[skill.tier].push(skill);
     });
+
+    for (const branch in branches) {
+        branches[branch].sort((a, b) => a.tier - b.tier);
+    }
+
 
     return (
         <>
             <h3>Árbol de Habilidades</h3>
             <div className="skill-tree-container item-list">
-                {Object.keys(tiers).map(tier => (
-                    <div className="skill-tier" key={tier}>
-                        {tiers[parseInt(tier)].map(skill => (
+                {Object.keys(branches).map(branchName => (
+                    <div className="skill-tier" key={branchName}>
+                        {branches[branchName].map(skill => (
                             <SkillNode
                                 key={skill.id}
                                 skill={skill}

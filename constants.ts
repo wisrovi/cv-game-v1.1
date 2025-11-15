@@ -20,6 +20,7 @@ export const COLLECTIBLE_RESPAWN_TIME = 30000; // 30 seconds
 export const TELEPORT_COST = 25;
 
 export const skillTree: Skill[] = [
+    // --- Left Branch: Mobility & Utility ---
     // Tier 1
     {
         id: 'agile_explorer_1',
@@ -30,16 +31,7 @@ export const skillTree: Skill[] = [
         effect: { type: 'SPEED_BOOST_PERCENT', value: 0.10 },
         icon: 'speed',
         tier: 1,
-    },
-    {
-        id: 'treasure_hunter_1',
-        name: 'Cazatesoros I',
-        description: 'Aumenta las monedas obtenidas de misiones y recolección en un 15%.',
-        cost: { coins: 100, gems: { '#00aaff': 1 } },
-        requiredLevel: 3,
-        effect: { type: 'COIN_GAIN_PERCENT', value: 0.15 },
-        icon: 'coin',
-        tier: 1,
+        branch: 'mobility',
     },
     // Tier 2
     {
@@ -52,6 +44,59 @@ export const skillTree: Skill[] = [
         effect: { type: 'SPEED_BOOST_PERCENT', value: 0.15 },
         icon: 'speed',
         tier: 2,
+        branch: 'mobility',
+    },
+    // Tier 3
+    {
+        id: 'master_learner',
+        name: 'Maestro del Aprendizaje',
+        description: 'Aumenta toda la experiencia (XP) ganada en un 20%.',
+        cost: { coins: 500, gems: { '#e74c3c': 2 } },
+        requiredLevel: 8,
+        requiredSkillId: 'agile_explorer_2',
+        effect: { type: 'XP_GAIN_PERCENT', value: 0.20 },
+        icon: 'xp',
+        tier: 3,
+        branch: 'mobility',
+    },
+    {
+        id: 'telemetry_1',
+        name: 'Telemetría Eficiente',
+        description: 'Reduce el coste base del teletransporte en un 30%.',
+        cost: { coins: 600, gems: { '#9b59b6': 2 } },
+        requiredLevel: 9,
+        requiredSkillId: 'agile_explorer_2',
+        effect: { type: 'TELEPORT_COST_REDUCTION_PERCENT', value: 0.30 },
+        icon: 'teleport',
+        tier: 3,
+        branch: 'mobility',
+    },
+
+    // --- Right Branch: Economy ---
+    // Tier 1
+    {
+        id: 'treasure_hunter_1',
+        name: 'Cazatesoros I',
+        description: 'Aumenta las monedas obtenidas de misiones y recolección en un 15%.',
+        cost: { coins: 100, gems: { '#00aaff': 1 } },
+        requiredLevel: 3,
+        effect: { type: 'COIN_GAIN_PERCENT', value: 0.15 },
+        icon: 'coin',
+        tier: 1,
+        branch: 'economy',
+    },
+    // Tier 2
+    {
+        id: 'barter_1',
+        name: 'Regateo I',
+        description: 'Reduce el coste de los objetos en la tienda en un 10%.',
+        cost: { coins: 200, gems: { '#00aaff': 2 } },
+        requiredLevel: 4,
+        requiredSkillId: 'treasure_hunter_1',
+        effect: { type: 'SHOP_DISCOUNT_PERCENT', value: 0.10 },
+        icon: 'price_tag',
+        tier: 2,
+        branch: 'economy',
     },
     {
         id: 'gemstone_affinity_1',
@@ -63,30 +108,33 @@ export const skillTree: Skill[] = [
         effect: { type: 'GEM_FIND_CHANCE', value: 0.25 },
         icon: 'gem',
         tier: 2,
+        branch: 'economy',
     },
-     // Tier 3
+    // Tier 3
     {
-        id: 'master_learner',
-        name: 'Maestro del Aprendizaje',
-        description: 'Aumenta toda la experiencia (XP) ganada en un 20%.',
-        cost: { coins: 500, gems: { '#e74c3c': 2 } },
+        id: 'gem_expert_1',
+        name: 'Experto en Gemas',
+        description: 'Aumenta el valor de venta de las gemas en un 25%.',
+        cost: { coins: 450, gems: { '#f1c40f': 4 } },
         requiredLevel: 8,
-        requiredSkillId: 'agile_explorer_2',
-        effect: { type: 'XP_GAIN_PERCENT', value: 0.20 },
-        icon: 'xp',
+        requiredSkillId: 'barter_1',
+        effect: { type: 'GEM_SELL_VALUE_PERCENT', value: 0.25 },
+        icon: 'gem',
         tier: 3,
+        branch: 'economy',
     },
     {
         id: 'master_scavenger',
         name: 'Maestro Carroñero',
         description: 'Aumenta permanentemente las monedas obtenidas en un 30% adicional.',
-        cost: { coins: 600, gems: { '#9b59b6': 2 } },
+        cost: { coins: 600, gems: { '#2ecc71': 3 } },
         requiredLevel: 10,
         requiredSkillId: 'gemstone_affinity_1',
         effect: { type: 'COIN_GAIN_PERCENT', value: 0.30 },
         icon: 'coin',
         tier: 3,
-    }
+        branch: 'economy',
+    },
 ];
 
 

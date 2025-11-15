@@ -40,6 +40,9 @@ export interface PlayerState {
     magnetRange: number;
     coinDoublerChance: number;
     teleportCostMultiplier: number;
+    shopDiscount: number;
+    gemSellBonus: number;
+    teleportCostBonus: number;
 }
 
 // State that gets saved to Redis (omits transient data like position)
@@ -112,7 +115,7 @@ export interface Interior {
 }
 
 export interface SkillEffect {
-    type: 'SPEED_BOOST_PERCENT' | 'COIN_GAIN_PERCENT' | 'GEM_FIND_CHANCE' | 'XP_GAIN_PERCENT';
+    type: 'SPEED_BOOST_PERCENT' | 'COIN_GAIN_PERCENT' | 'GEM_FIND_CHANCE' | 'XP_GAIN_PERCENT' | 'SHOP_DISCOUNT_PERCENT' | 'GEM_SELL_VALUE_PERCENT' | 'TELEPORT_COST_REDUCTION_PERCENT';
     value: number;
 }
 
@@ -129,6 +132,7 @@ export interface Skill {
     requiredLevel: number;
     requiredSkillId?: string;
     effect: SkillEffect;
-    icon: 'speed' | 'coin' | 'gem' | 'xp';
+    icon: 'speed' | 'coin' | 'gem' | 'xp' | 'price_tag' | 'teleport';
     tier: number;
+    branch: 'mobility' | 'economy';
 }

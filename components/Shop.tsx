@@ -35,7 +35,8 @@ const ShopItemCard: React.FC<{
     onBuyItem: (item: ShopItem) => void
 }> = ({ item, playerState, onBuyItem }) => {
     const isPurchased = playerState.upgrades.includes(item.id);
-    const isAffordable = playerState.coins >= item.cost;
+    const discountedCost = Math.round(item.cost * (1 - playerState.shopDiscount));
+    const isAffordable = playerState.coins >= discountedCost;
     const buttonText = isPurchased ? 'Comprado' : 'Comprar';
     
     let cardClass = 'shop-item-card';
@@ -54,7 +55,14 @@ const ShopItemCard: React.FC<{
             <p>{item.description}</p>
             <div className="shop-item-footer">
                 <div className="shop-item-cost">
-                    <CoinIcon className="icon" /> {item.cost}
+                    <CoinIcon className="icon" />
+                    {playerState.shopDiscount > 0 && !isPurchased ? (
+                        <>
+                            <del style={{opacity: 0.7}}>{item.cost}</del> {discountedCost}
+                        </>
+                    ) : (
+                        item.cost
+                    )}
                 </div>
                 <button onClick={() => onBuyItem(item)} disabled={isPurchased || !isAffordable}>
                     {buttonText}
@@ -66,6 +74,7 @@ const ShopItemCard: React.FC<{
 
 const Shop: React.FC<ShopProps> = ({ playerState, onClose, onBuyItem, onSellGem }) => {
     const gemCount = Object.keys(playerState.gems).length;
+    const finalSellValue = Math.round(GEM_SELL_VALUE * (1 + playerState.gemSellBonus));
 
     return (
         <div className="modal-overlay">
@@ -100,7 +109,7 @@ const Shop: React.FC<ShopProps> = ({ playerState, onClose, onBuyItem, onSellGem 
                                                 Gema (x{amount})
                                             </p>
                                             <button onClick={() => onSellGem(color)}>
-                                                Vender 1 por {GEM_SELL_VALUE}
+                                                Vender 1 por {finalSellValue}
                                             </button>
                                         </div>
                                     )

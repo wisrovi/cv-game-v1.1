@@ -86,6 +86,9 @@ const App: React.FC = () => {
         magnetRange: 0,
         coinDoublerChance: 0,
         teleportCostMultiplier: 1,
+        shopDiscount: 0,
+        gemSellBonus: 0,
+        teleportCostBonus: 0,
     });
 
     const [missions, setMissions] = useState<Mission[]>(initialMissions);
@@ -330,6 +333,10 @@ isPausedRef.current = isGamePaused;
                         // Restore non-persistent fields
                         interactionTarget: null,
                         isMoving: false,
+                        // Add defaults for new fields if loading old save
+                        shopDiscount: cloudState.playerState.shopDiscount || 0,
+                        gemSellBonus: cloudState.playerState.gemSellBonus || 0,
+                        teleportCostBonus: cloudState.playerState.teleportCostBonus || 0,
                     }));
                     setMissions(cloudState.missions);
                     setDevOptionsUnlocked(cloudState.devOptions.devOptionsUnlocked);
@@ -525,7 +532,9 @@ isPausedRef.current = isGamePaused;
 
     const buyShopItem = (item: ShopItem) => {
         playSound('UI_CLICK');
-        if (playerState.coins >= item.cost && !playerState.upgrades.includes(item.id)) {
+        const discountedCost = Math.round(item.cost * (1 - playerState.shopDiscount));
+
+        if (playerState.coins >= discountedCost && !playerState.upgrades.includes(item.id)) {
             setPlayerState(p => {
                 const newUpgrades = [...p.upgrades, item.id];
                 let newSpeed = p.speed;
@@ -545,7 +554,7 @@ isPausedRef.current = isGamePaused;
 
                 return {
                     ...p,
-                    coins: p.coins - item.cost,
+                    coins: p.coins - discountedCost,
                     upgrades: newUpgrades,
                     speed: newSpeed,
                     interactionRange: newInteractionRange,
@@ -566,6 +575,7 @@ isPausedRef.current = isGamePaused;
     
     const handleSellGem = (color: string) => {
         playSound('UI_CLICK');
+        const finalSellValue = Math.round(GEM_SELL_VALUE * (1 + playerState.gemSellBonus));
         if (playerState.gems[color] && playerState.gems[color] > 0) {
             setPlayerState(p => {
                 const newGems = { ...p.gems };
@@ -576,10 +586,10 @@ isPausedRef.current = isGamePaused;
                 return {
                     ...p,
                     gems: newGems,
-                    coins: p.coins + GEM_SELL_VALUE,
+                    coins: p.coins + finalSellValue,
                 };
             });
-            showNotification(`¡Has vendido una gema por ${GEM_SELL_VALUE} monedas!`, { sound: 'PICKUP' });
+            showNotification(`¡Has vendido una gema por ${finalSellValue} monedas!`, { sound: 'PICKUP' });
         }
     };
     
@@ -624,24 +634,53 @@ isPausedRef.current = isGamePaused;
             
             const newUnlockedSkills = [...prev.unlockedSkills, skill.id];
     
+            // Recalculate all derived stats
             let newSpeed = PLAYER_INITIAL_SPEED;
             let newXpBoost = 1;
-            
-            prev.upgrades.forEach(upgradeId => {
-                const item = shopItems.find(i => i.id === upgradeId);
-                if(item) {
-                     if (item.effect.type === 'SPEED_BOOST') newSpeed *= item.effect.value;
-                     if (item.effect.type === 'XP_BOOST') newXpBoost *= item.effect.value;
+            let newInteractionRange = PLAYER_INTERACTION_RANGE;
+            let newMagnetRange = 0;
+            let newCoinDoublerChance = 0;
+            let newTeleportCostMultiplier = 1;
+            let newShopDiscount = 0;
+            let newGemSellBonus = 0;
+            let newTeleportCostBonus = 0;
+
+            const allEffects = [
+                ...prev.upgrades.map(id => shopItems.find(i => i.id === id)?.effect),
+                ...newUnlockedSkills.map(id => skillTree.find(s => s.id === id)?.effect)
+            ].filter((effect): effect is NonNullable<typeof effect> => !!effect);
+
+            for (const effect of allEffects) {
+                switch (effect.type) {
+                    case 'SPEED_BOOST': newSpeed *= effect.value; break;
+                    case 'SPEED_BOOST_PERCENT': newSpeed *= (1 + effect.value); break;
+                    case 'XP_BOOST': newXpBoost *= effect.value; break;
+                    case 'XP_GAIN_PERCENT': newXpBoost *= (1 + effect.value); break;
+                    case 'INTERACTION_RANGE_BOOST': newInteractionRange *= effect.value; break;
+                    case 'MAGNET_RANGE': newMagnetRange += effect.value; break;
+                    case 'COIN_DOUBLER_CHANCE': newCoinDoublerChance = Math.max(newCoinDoublerChance, effect.value); break;
+                    case 'TELEPORT_COST_MULTIPLIER': newTeleportCostMultiplier = Math.min(newTeleportCostMultiplier, effect.value); break;
+                    case 'SHOP_DISCOUNT_PERCENT': newShopDiscount += effect.value; break;
+                    case 'GEM_SELL_VALUE_PERCENT': newGemSellBonus += effect.value; break;
+                    case 'TELEPORT_COST_REDUCTION_PERCENT': newTeleportCostBonus += effect.value; break;
                 }
-            });
-    
-            newUnlockedSkills.forEach(unlockedSkillId => {
-                const s = skillTree.find(sk => sk.id === unlockedSkillId);
-                if (s?.effect.type === 'SPEED_BOOST_PERCENT') newSpeed *= (1 + s.effect.value);
-                if (s?.effect.type === 'XP_GAIN_PERCENT') newXpBoost *= (1 + s.effect.value);
-            });
+            }
             
-            return { ...prev, coins: newCoins, gems: newGems, unlockedSkills: newUnlockedSkills, speed: newSpeed, xpBoost: newXpBoost };
+            return { 
+                ...prev, 
+                coins: newCoins, 
+                gems: newGems, 
+                unlockedSkills: newUnlockedSkills, 
+                speed: newSpeed, 
+                xpBoost: newXpBoost, 
+                interactionRange: newInteractionRange,
+                magnetRange: newMagnetRange,
+                coinDoublerChance: newCoinDoublerChance,
+                teleportCostMultiplier: newTeleportCostMultiplier,
+                shopDiscount: newShopDiscount,
+                gemSellBonus: newGemSellBonus,
+                teleportCostBonus: newTeleportCostBonus,
+            };
         });
     
         showNotification(`Habilidad Desbloqueada: ${skill.name}!`, { sound: 'UNLOCK' });
@@ -692,7 +731,9 @@ isPausedRef.current = isGamePaused;
     }, [isCameraSnapping]);
 
     const handleTeleport = useCallback(() => {
-        const cost = TELEPORT_COST * playerState.teleportCostMultiplier;
+        const finalMultiplier = playerState.teleportCostMultiplier * (1 - playerState.teleportCostBonus);
+        const cost = Math.round(TELEPORT_COST * finalMultiplier);
+
         if (playerState.coins < cost) {
             showNotification(`No tienes suficientes monedas para el teletransporte. Se necesitan ${cost}.`, { sound: 'ERROR' });
             return;

@@ -336,6 +336,17 @@ body {
 #npc_vendor { background: transparent !important; }
 #npc_vendor .npc-body { background: #0072B2; width: 100%; height: 80%; border-radius: 5px; }
 #npc_vendor .npc-body::before { content:''; position: absolute; top:-15px; left:-10px; right:-10px; height:20px; background: repeating-linear-gradient(45deg, #eee, #eee 10px, #ccc 10px, #ccc 20px); border-radius: 5px; }
+#npc_vendor .npc-body::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: -20%;
+    right: -20%;
+    height: 15px;
+    background: #4a5568;
+    border: 2px solid #718096;
+    border-radius: 5px;
+}
 #npc_vendor .npc-head { display: none; }
 
 #npc_vincent .npc-body { background: #5a189a; border-radius: 20% 20% 5px 5px; height: 80%; }
@@ -1188,4 +1199,152 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* --- Shop Styles --- */
+.modal-box.shop {
+    max-width: 900px;
+    max-height: 90vh;
+}
+
+.shop-container {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.shop-section h4 {
+    margin: 0 0 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ui-border);
+    color: var(--xp-color);
+    font-size: 1.1em;
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    overflow-y: auto;
+    max-height: 50vh;
+    padding: 5px 15px 5px 5px;
+}
+
+.shop-item-card {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.shop-item-card:not(.purchased):not(.unaffordable):hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px var(--ui-border);
+}
+
+.shop-item-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.shop-item-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ui-bg);
+    border-radius: 50%;
+}
+.shop-item-icon .icon {
+    width: 22px;
+    height: 22px;
+    stroke: var(--xp-color);
+}
+.shop-item-header h5 {
+    margin: 0;
+    font-size: 1em;
+}
+
+.shop-item-card p {
+    font-size: 0.8em;
+    opacity: 0.8;
+    line-height: 1.5;
+    flex-grow: 1;
+    margin: 0;
+}
+
+.shop-item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.shop-item-cost {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: bold;
+}
+.shop-item-cost .icon {
+    width: 16px;
+    height: 16px;
+}
+
+.shop-item-card button {
+    font-size: 0.9em;
+    padding: 8px 12px;
+}
+
+.shop-item-card.unaffordable {
+    border-color: #555;
+    color: #999;
+}
+.shop-item-card.unaffordable .shop-item-icon .icon {
+    stroke: #777;
+}
+.shop-item-card.unaffordable button {
+    background: #444;
+    cursor: not-allowed;
+}
+
+.shop-item-card.purchased {
+    border-color: var(--color-completed);
+    background: rgba(46, 204, 113, 0.1);
+}
+.shop-item-card.purchased .shop-item-icon {
+    background: var(--color-completed);
+}
+.shop-item-card.purchased .shop-item-icon .icon {
+    stroke: var(--text-dark);
+}
+.shop-item-card.purchased button {
+    background: var(--color-completed);
+    cursor: default;
+}
+
+.sell-gems-grid {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.sell-gem-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--ui-border);
+    padding: 10px 15px;
+    border-radius: 8px;
+}
+.sell-gem-card p {
+    margin: 0;
 }

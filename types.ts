@@ -37,10 +37,13 @@ export interface PlayerState {
     interactionRange: number;
     unlockedSkills: string[];
     isMoving?: boolean;
+    magnetRange: number;
+    coinDoublerChance: number;
+    teleportCostMultiplier: number;
 }
 
 // State that gets saved to Redis (omits transient data like position)
-export type PersistentPlayerState = Omit<PlayerState, 'interactionTarget' | 'isMoving'>;
+export type PersistentPlayerState = Omit<PlayerState, 'x' | 'y' | 'interactionTarget' | 'isMoving'>;
 
 export interface PersistentState {
     playerState: PersistentPlayerState;
@@ -88,7 +91,7 @@ export interface ShopItem {
     description: string;
     cost: number;
     effect: {
-        type: 'SPEED_BOOST' | 'INTERACTION_RANGE_BOOST' | 'XP_BOOST';
+        type: 'SPEED_BOOST' | 'INTERACTION_RANGE_BOOST' | 'XP_BOOST' | 'MAGNET_RANGE' | 'COIN_DOUBLER_CHANCE' | 'TELEPORT_COST_MULTIPLIER';
         value: number;
     };
 }

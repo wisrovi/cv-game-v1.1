@@ -17,6 +17,7 @@ export const INITIAL_XP_TO_LEVEL_UP = 100;
 export const GAME_VERSION = '1.2.1';
 export const GEM_SELL_VALUE = 50;
 export const COLLECTIBLE_RESPAWN_TIME = 30000; // 30 seconds
+export const TELEPORT_COST = 25;
 
 export const skillTree: Skill[] = [
     // Tier 1
@@ -93,7 +94,7 @@ const initialGameObjects: GameObject[] = [
   // NPCs
   { id: 'npc_ada', x: 1150, y: 1450, width: 30, height: 45, type: 'npc', name: 'Ada, la Guía', color: '#AD1AAD', missionId: 1 },
   { id: 'npc_charles', x: 2100, y: 350, width: 30, height: 45, type: 'npc', name: 'Charles, el Ingeniero', color: '#D55E00', missionId: 2 },
-  { id: 'npc_vendor', x: 1300, y: 1250, width: 40, height: 50, type: 'npc', name: 'Vendedor de Mejoras', color: '#0072B2' },
+  { id: 'npc_vendor', x: 1300, y: 1250, width: 40, height: 50, type: 'npc', name: 'Chip, el Mercader', color: '#0072B2' },
   { id: 'npc_vincent', x: 1850, y: 700, width: 30, height: 45, type: 'npc', name: 'Vincent, el Visionario', color: '#5a189a' },
 
   // Buildings (Projects)
@@ -306,9 +307,12 @@ export const missions: Mission[] = [
 ];
 
 export const shopItems: ShopItem[] = [
-    { id: 'speed_boost_1', name: 'Aumento de Velocidad', description: 'Aumenta tu velocidad de movimiento en un 33%.', cost: 100, effect: { type: 'SPEED_BOOST', value: 1.33 } },
+    { id: 'speed_boost_1', name: 'Propulsores Mejorados', description: 'Aumenta tu velocidad de movimiento en un 33%.', cost: 100, effect: { type: 'SPEED_BOOST', value: 1.33 } },
     { id: 'interaction_range_1', name: 'Escáner de Largo Alcance', description: 'Aumenta tu rango de interacción un 50%.', cost: 120, effect: { type: 'INTERACTION_RANGE_BOOST', value: 1.5 } },
     { id: 'xp_boost_1', name: 'Módulo de Aprendizaje', description: 'Gana un 20% más de XP permanentemente.', cost: 200, effect: { type: 'XP_BOOST', value: 1.2 } },
+    { id: 'magnet_1', name: 'Imán de Coleccionables', description: 'Atrae monedas y gemas cercanas automáticamente.', cost: 250, effect: { type: 'MAGNET_RANGE', value: 75 } },
+    { id: 'coin_doubler_1', name: 'Duplicador de Monedas', description: '15% de probabilidad de duplicar las monedas recogidas.', cost: 400, effect: { type: 'COIN_DOUBLER_CHANCE', value: 0.15 } },
+    { id: 'teleport_optimizer_1', name: 'Optimizador de Teletransporte', description: 'Reduce el coste de teletransporte en un 50%.', cost: 300, effect: { type: 'TELEPORT_COST_MULTIPLIER', value: 0.5 } },
 ];
 
 export const interiors: Interior[] = [

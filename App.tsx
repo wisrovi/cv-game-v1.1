@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerState, GameObject, Mission, Dialogue, ShopItem, Interior, Skill, PersistentState } from './types';
 import {
@@ -19,6 +20,7 @@ import {
   GAME_VERSION,
   GEM_SELL_VALUE,
   COLLECTIBLE_RESPAWN_TIME,
+  TELEPORT_COST,
   skillTree,
 } from './constants';
 import { generateNpcDialogue } from './services/geminiService';
@@ -33,6 +35,7 @@ import WorldMap from './components/WorldMap';
 import DeployPuzzle from './components/DeployPuzzle';
 import ImageGenerator from './components/ImageGenerator';
 import PlayerNamePrompt from './components/PlayerNamePrompt';
+import Shop from './components/Shop';
 import './App.css';
 
 interface MissionArrowProps {
@@ -82,13 +85,16 @@ const App: React.FC = () => {
         interactionRange: PLAYER_INTERACTION_RANGE,
         unlockedSkills: [],
         isMoving: false,
+        magnetRange: 0,
+        coinDoublerChance: 0,
+        teleportCostMultiplier: 1,
     });
 
     const [missions, setMissions] = useState<Mission[]>(initialMissions);
     const [gameObjects, setGameObjects] = useState<GameObject[]>(initialGameObjects);
     const [dialogue, setDialogue] = useState<Dialogue | null>(null);
     const [notification, setNotification] = useState<string | null>(null);
-    const [shopView, setShopView] = useState<'closed' | 'buy' | 'sell'>('closed');
+    const [isShopOpen, setIsShopOpen] = useState(false);
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [menuView, setMenuView] = useState<'main' | 'missions' | 'skills' | 'map'>('main');
@@ -119,7 +125,7 @@ const App: React.FC = () => {
     const notificationTimeoutRef = useRef<number | null>(null);
     const versionClickTimeoutRef = useRef<number | null>(null);
     
-    const isGamePaused = dialogue || shopView !== 'closed' || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen || !playerName;
+    const isGamePaused = dialogue || isShopOpen || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen || !playerName;
     const isPausedRef = useRef(isGamePaused);
 isPausedRef.current = isGamePaused;
     
@@ -435,7 +441,7 @@ isPausedRef.current = isGamePaused;
         }
         
         if (target.id === 'npc_vendor') {
-            setShopView('buy');
+            setIsShopOpen(true);
             playSound('UI_CLICK');
             return;
         }
@@ -523,10 +529,17 @@ isPausedRef.current = isGamePaused;
                 let newSpeed = p.speed;
                 let newInteractionRange = p.interactionRange;
                 let newXpBoost = p.xpBoost;
+                let newMagnetRange = p.magnetRange;
+                let newCoinDoublerChance = p.coinDoublerChance;
+                let newTeleportCostMultiplier = p.teleportCostMultiplier;
 
                 if (item.effect.type === 'SPEED_BOOST') newSpeed *= item.effect.value;
                 if (item.effect.type === 'INTERACTION_RANGE_BOOST') newInteractionRange *= item.effect.value;
                 if (item.effect.type === 'XP_BOOST') newXpBoost *= item.effect.value;
+                if (item.effect.type === 'MAGNET_RANGE') newMagnetRange += item.effect.value;
+                if (item.effect.type === 'COIN_DOUBLER_CHANCE') newCoinDoublerChance = Math.max(newCoinDoublerChance, item.effect.value);
+                if (item.effect.type === 'TELEPORT_COST_MULTIPLIER') newTeleportCostMultiplier = item.effect.value;
+
 
                 return {
                     ...p,
@@ -535,6 +548,9 @@ isPausedRef.current = isGamePaused;
                     speed: newSpeed,
                     interactionRange: newInteractionRange,
                     xpBoost: newXpBoost,
+                    magnetRange: newMagnetRange,
+                    coinDoublerChance: newCoinDoublerChance,
+                    teleportCostMultiplier: newTeleportCostMultiplier,
                 };
             });
             showNotification(`¡Has comprado ${item.name}!`, { sound: 'UNLOCK' });
@@ -674,6 +690,12 @@ isPausedRef.current = isGamePaused;
     }, [isCameraSnapping]);
 
     const handleTeleport = useCallback(() => {
+        const cost = TELEPORT_COST * playerState.teleportCostMultiplier;
+        if (playerState.coins < cost) {
+            showNotification(`No tienes suficientes monedas para el teletransporte. Se necesitan ${cost}.`, { sound: 'ERROR' });
+            return;
+        }
+
         if(currentInterior) {
             showNotification("No se puede usar el teletransporte en interiores.", { sound: 'ERROR' });
             return;
@@ -755,6 +777,8 @@ isPausedRef.current = isGamePaused;
         const safeSpot = findSafeLandingSpot(targetObject);
 
         if (safeSpot) {
+            setPlayerState(p => ({...p, coins: p.coins - cost }));
+            showNotification(`Teletransporte... Coste: ${cost} monedas.`, { duration: 1000 });
             setTeleportPhase('out');
             setTimeout(() => {
                 setIsTeleporting(true);
@@ -775,7 +799,7 @@ isPausedRef.current = isGamePaused;
         } else {
             showNotification("No se pudo encontrar un punto de aterrizaje seguro cerca del objetivo.", { sound: 'ERROR' });
         }
-    }, [missions, gameObjects, showNotification, currentInterior]);
+    }, [playerState, missions, gameObjects, showNotification, currentInterior]);
 
     useEffect(() => {
         const gameLoop = (currentTime: number) => {
@@ -885,7 +909,7 @@ isPausedRef.current = isGamePaused;
                         const collectibleCenterY = obj.y + obj.height / 2;
                         const dist = Math.hypot(playerCenterX - collectibleCenterX, playerCenterY - collectibleCenterY);
 
-                        if (dist < (PLAYER_WIDTH / 2 + obj.width / 2)) {
+                        if (dist < (PLAYER_WIDTH / 2 + obj.width / 2) + prev.magnetRange) {
                             collectedThisFrame.push(obj);
                              if (obj.collectibleType === 'coin') {
                                 coinsGained += (obj.value || 1);
@@ -904,6 +928,13 @@ isPausedRef.current = isGamePaused;
                     
                     if (collectedThisFrame.length > 0) {
                         playSound('PICKUP');
+                        let finalCoinsGained = coinsGained;
+                        let wasDoubled = false;
+                        if (coinsGained > 0 && Math.random() < prev.coinDoublerChance) {
+                            finalCoinsGained *= 2;
+                            wasDoubled = true;
+                        }
+
                         const coinGainMultiplier = prev.unlockedSkills.reduce((multiplier, skillId) => {
                             const skill = skillTree.find(s => s.id === skillId);
                             if (skill?.effect.type === 'COIN_GAIN_PERCENT') {
@@ -911,7 +942,7 @@ isPausedRef.current = isGamePaused;
                             }
                             return multiplier;
                         }, 1);
-                        const finalCoinsGained = Math.round(coinsGained * coinGainMultiplier);
+                        finalCoinsGained = Math.round(finalCoinsGained * coinGainMultiplier);
 
                         const gemFindChance = prev.unlockedSkills.reduce((chance, skillId) => {
                             const skill = skillTree.find(s => s.id === skillId);
@@ -937,7 +968,7 @@ isPausedRef.current = isGamePaused;
                             }, 500);
                          });
 
-                         if (finalCoinsGained > 0) showNotification(`+${finalCoinsGained} moneda!`, { duration: 1000 });
+                         if (finalCoinsGained > 0) showNotification(`+${finalCoinsGained} moneda${finalCoinsGained > 1 ? 's' : ''}!${wasDoubled ? ' (x2!)' : ''}`, { duration: 1000 });
                          const numGems = Object.values(gemsGained).reduce((a, b) => a + b, 0);
                          if (numGems > 0) showNotification(`+${numGems} gema!`, { duration: 1000 });
 
@@ -968,7 +999,7 @@ isPausedRef.current = isGamePaused;
                 let didCloseSomething = false;
                 if (isPuzzleActive) { setIsPuzzleActive(false); didCloseSomething = true; }
                 else if (dialogue) { setDialogue(null); didCloseSomething = true; }
-                else if (shopView !== 'closed') { setShopView('closed'); didCloseSomething = true; }
+                else if (isShopOpen) { setIsShopOpen(false); didCloseSomething = true; }
                 else if (isInventoryOpen) { setIsInventoryOpen(false); didCloseSomething = true; }
                 else if (isMenuOpen) { setIsMenuOpen(false); setMenuView('main'); didCloseSomething = true; }
                 else if (isAdaChatOpen) { handleCloseAdaChat(); didCloseSomething = true; }
@@ -1026,7 +1057,7 @@ isPausedRef.current = isGamePaused;
             if(notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
             if(versionClickTimeoutRef.current) clearTimeout(versionClickTimeoutRef.current);
         };
-    }, [handleInteraction, dialogue, shopView, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, isImageGeneratorOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused, currentInterior]);
+    }, [handleInteraction, dialogue, isShopOpen, isInventoryOpen, isMenuOpen, isChatOpen, isPuzzleActive, isAdaChatOpen, isImageGeneratorOpen, teleporterEnabled, handleTeleport, handleCloseAdaChat, isGamePaused, currentInterior]);
     
     const activeMission = missions.find(m => m.status === 'disponible');
     const xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, playerState.level - 1);
@@ -1277,51 +1308,13 @@ isPausedRef.current = isGamePaused;
                 </div>
             )}
             
-            {shopView !== 'closed' && (
-                <div className="modal-overlay">
-                    <div className="modal-box">
-                        <h3>Tienda</h3>
-                         <div className="shop-options">
-                            <button onClick={() => { setShopView('buy'); playSound('UI_CLICK'); }} disabled={shopView === 'buy'}>Comprar Mejoras</button>
-                            <button onClick={() => { setShopView('sell'); playSound('UI_CLICK'); }} disabled={shopView === 'sell'}>Vender Gemas</button>
-                        </div>
-                        {shopView === 'buy' && (
-                            <div className="item-list">
-                                {shopItems.map(item => (
-                                    <div key={item.id} className="list-item">
-                                        <div>
-                                            <b>{item.name}</b>
-                                            <p>{item.description}</p>
-                                        </div>
-                                        <button onClick={() => buyShopItem(item)} disabled={playerState.upgrades.includes(item.id)}>
-                                            {playerState.upgrades.includes(item.id) ? 'Comprado' : `${item.cost} Monedas`}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {shopView === 'sell' && (
-                            <div className="item-list">
-                                {Object.keys(playerState.gems).length > 0 ? Object.entries(playerState.gems).map(([color, amount]) => {
-                                    // FIX: The error on line 1282 is likely misreported. The actual error is probably here, where `amount`
-                                    // can be inferred as `unknown`. Explicitly casting to `number` fixes the comparison.
-                                    return (amount as number) > 0 && (
-                                        <div key={color} className="list-item">
-                                            <div style={{display: 'flex', alignItems: 'center'}}>
-                                                <GemIcon className="gem-icon" color={color} />
-                                                <b>Gema (x{amount})</b>
-                                            </div>
-                                            <button onClick={() => handleSellGem(color)}>
-                                                Vender 1 por {GEM_SELL_VALUE}
-                                            </button>
-                                        </div>
-                                    );
-                                }) : <p>No tienes gemas para vender.</p>}
-                             </div>
-                        )}
-                         <button onClick={() => { setShopView('closed'); playSound('UI_CLICK'); }} style={{marginTop: '20px'}}>Cerrar</button>
-                    </div>
-                </div>
+            {isShopOpen && (
+                <Shop
+                    playerState={playerState}
+                    onClose={() => { setIsShopOpen(false); playSound('UI_CLICK'); }}
+                    onBuyItem={buyShopItem}
+                    onSellGem={handleSellGem}
+                />
             )}
 
             {isInventoryOpen && (

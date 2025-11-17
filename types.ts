@@ -10,7 +10,7 @@ export interface GameObject {
     missionId?: number;
     door?: { x: number; y: number; width: number; height: number; };
     // For collectibles
-    collectibleType?: 'coin' | 'gem';
+    collectibleType?: 'coin' | 'gem' | 'heart';
     value?: number; // For coins
     gemColor?: string; // For gems
     interiorId?: string;
@@ -43,6 +43,7 @@ export interface PlayerState {
     shopDiscount: number;
     gemSellBonus: number;
     teleportCostBonus: number;
+    hasHeartToXPAmulet: boolean;
 }
 
 // State that gets saved to Redis (omits transient data like position)
@@ -94,7 +95,7 @@ export interface ShopItem {
     description: string;
     cost: number;
     effect: {
-        type: 'SPEED_BOOST' | 'INTERACTION_RANGE_BOOST' | 'XP_BOOST' | 'MAGNET_RANGE' | 'COIN_DOUBLER_CHANCE' | 'TELEPORT_COST_MULTIPLIER';
+        type: 'SPEED_BOOST' | 'INTERACTION_RANGE_BOOST' | 'XP_BOOST' | 'MAGNET_RANGE' | 'COIN_DOUBLER_CHANCE' | 'TELEPORT_COST_MULTIPLIER' | 'HEART_TO_XP';
         value: number;
     };
 }

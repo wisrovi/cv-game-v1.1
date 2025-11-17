@@ -396,6 +396,10 @@ body {
     border: 1px solid #fff;
     animation: coin-spin 2s linear infinite, collectible-glow 2.5s ease-in-out infinite;
 }
+.collectible.heart {
+    color: #ff4757;
+    animation: pulse 2s ease-in-out infinite, collectible-glow 2.5s ease-in-out infinite;
+}
 
 .object-name { position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: var(--ui-bg); padding: 2px 5px; border-radius: 3px; font-size: 10px; white-space: nowrap; border: 1px solid var(--ui-border); }
 
@@ -1192,6 +1196,9 @@ body {
     display: flex;
     flex-direction: column;
     gap: 25px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    padding: 5px 15px 5px 5px;
 }
 
 .shop-section h4 {
@@ -1206,9 +1213,6 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
-    overflow-y: auto;
-    max-height: 50vh;
-    padding: 5px 15px 5px 5px;
 }
 
 .shop-item-card {
@@ -1330,9 +1334,46 @@ body {
     margin: 0;
 }
 
+.sell-gem-card .sell-all-btn {
+    padding: 4px 8px;
+    font-size: 0.75em;
+    background-color: var(--interior-wall);
+}
+.sell-gem-card .sell-all-btn:hover {
+    background-color: #4a5568;
+}
+
 /* Flying Collectible Animation */
 .flying-collectible-icon {
     width: 24px;
     height: 24px;
     filter: drop-shadow(0 0 8px white);
+}
+
+/* --- Player Amulet Glow --- */
+.player.player-with-amulet .player-body {
+    animation: amulet-glow 2s infinite ease-in-out;
+}
+
+@keyframes amulet-glow {
+    0% {
+        box-shadow: 0 5px 15px rgba(0, 170, 255, 0.4), 0 0 10px 2px var(--xp-color);
+    }
+    50% {
+        box-shadow: 0 5px 25px rgba(0, 170, 255, 0.6), 0 0 25px 8px var(--xp-color);
+    }
+    100% {
+        box-shadow: 0 5px 15px rgba(0, 170, 255, 0.4), 0 0 10px 2px var(--xp-color);
+    }
+}
+
+/* Minimap Amulet Glow */
+.minimap-dot.player.amulet-active {
+    animation: amulet-glow-minimap-xp 1.5s infinite;
+}
+
+@keyframes amulet-glow-minimap-xp {
+    0% { box-shadow: 0 0 5px var(--xp-color); }
+    50% { box-shadow: 0 0 15px var(--xp-color); }
+    100% { box-shadow: 0 0 5px var(--xp-color); }
 }

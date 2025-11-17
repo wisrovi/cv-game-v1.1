@@ -48,7 +48,7 @@ const Minimap: React.FC<MinimapProps> = ({ playerState, gameObjects, missionTarg
                 )}
             </div>
              <div
-                className="minimap-dot player"
+                className={`minimap-dot player ${playerState.hasHeartToXPAmulet ? 'amulet-active' : ''}`}
                 style={{
                     left: '50%',
                     top: '50%',

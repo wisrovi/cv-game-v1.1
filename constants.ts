@@ -12,12 +12,14 @@ export const BASE_VIEWPORT_HEIGHT = 800;
 
 export const MINIMAP_SIZE = 180;
 
-
 export const INITIAL_XP_TO_LEVEL_UP = 100;
 export const GAME_VERSION = '1.2.1';
 export const GEM_SELL_VALUE = 50;
 export const COLLECTIBLE_RESPAWN_TIME = 30000; // 30 seconds
 export const TELEPORT_COST = 25;
+export const COIN_TO_XP_RATE = 100;
+export const XP_PER_COIN_TRADE = 50;
+export const XP_PER_HEART = 15;
 
 export const skillTree: Skill[] = [
     // --- Left Branch: Mobility & Utility ---
@@ -361,6 +363,7 @@ export const shopItems: ShopItem[] = [
     { id: 'magnet_1', name: 'Imán de Coleccionables', description: 'Atrae monedas y gemas cercanas automáticamente.', cost: 250, effect: { type: 'MAGNET_RANGE', value: 75 } },
     { id: 'coin_doubler_1', name: 'Duplicador de Monedas', description: '15% de probabilidad de duplicar las monedas recogidas.', cost: 400, effect: { type: 'COIN_DOUBLER_CHANCE', value: 0.15 } },
     { id: 'teleport_optimizer_1', name: 'Optimizador de Teletransporte', description: 'Reduce el coste de teletransporte en un 50%.', cost: 300, effect: { type: 'TELEPORT_COST_MULTIPLIER', value: 0.5 } },
+    { id: 'amulet_of_wisdom', name: 'Amuleto de Sabiduría', description: `Permite ganar ${XP_PER_HEART} XP por cada Corazón de Datos recogido.`, cost: 500, effect: { type: 'HEART_TO_XP', value: 1 } },
 ];
 
 export const interiors: Interior[] = [
@@ -379,6 +382,7 @@ export const interiors: Interior[] = [
 const collectibleObjects: GameObject[] = [];
 const COIN_SIZE = 15;
 const GEM_SIZE = 18;
+const HEART_SIZE = 20;
 const GEM_COLORS = ["#FF5733", "#33FF57", "#3357FF", "#FF33A1", "#F1C40F", "#9B59B6"];
 
 // Helper to check for collisions with a given list of objects
@@ -439,6 +443,30 @@ for (let i = 0; i < NUM_WORLD_GEMS; i++) {
             type: 'object',
             collectibleType: 'gem',
             gemColor: GEM_COLORS[Math.floor(Math.random() * GEM_COLORS.length)],
+        });
+    }
+}
+
+// Generate world hearts
+const NUM_WORLD_HEARTS = 10;
+for (let i = 0; i < NUM_WORLD_HEARTS; i++) {
+    let x, y, colliding;
+    const maxAttempts = 100;
+    let attempts = 0;
+    
+    do {
+        x = Math.random() * (WORLD_WIDTH - HEART_SIZE);
+        y = Math.random() * (WORLD_HEIGHT - HEART_SIZE);
+        colliding = isColliding(x, y, HEART_SIZE, HEART_SIZE, [...initialGameObjects, ...collectibleObjects]);
+        attempts++;
+    } while (colliding && attempts < maxAttempts);
+
+    if (!colliding) {
+         collectibleObjects.push({
+            id: `heart_world_${i}`,
+            x, y, width: HEART_SIZE, height: HEART_SIZE,
+            type: 'object',
+            collectibleType: 'heart',
         });
     }
 }

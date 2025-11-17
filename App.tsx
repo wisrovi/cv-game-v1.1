@@ -19,6 +19,9 @@ import {
   COLLECTIBLE_RESPAWN_TIME,
   TELEPORT_COST,
   skillTree,
+  XP_PER_HEART,
+  COIN_TO_XP_RATE,
+  XP_PER_COIN_TRADE,
 } from './constants';
 import { generateNpcDialogue } from './services/geminiService';
 import { playSound, soundLibrary } from './services/audioService';
@@ -89,6 +92,7 @@ const App: React.FC = () => {
         shopDiscount: 0,
         gemSellBonus: 0,
         teleportCostBonus: 0,
+        hasHeartToXPAmulet: false,
     });
 
     const [missions, setMissions] = useState<Mission[]>(initialMissions);
@@ -129,6 +133,7 @@ const App: React.FC = () => {
     const gameViewportRef = useRef<HTMLDivElement>(null);
     const coinHudRef = useRef<HTMLDivElement>(null);
     const gemHudRefContainer = useRef<HTMLDivElement>(null);
+    const xpBarRef = useRef<HTMLDivElement>(null);
     
     const isGamePaused = dialogue || isShopOpen || isInventoryOpen || isMenuOpen || isChatOpen || isAdaChatOpen || isPuzzleActive || isImageGeneratorOpen || !playerName;
     const isPausedRef = useRef(isGamePaused);
@@ -337,6 +342,7 @@ isPausedRef.current = isGamePaused;
                         shopDiscount: cloudState.playerState.shopDiscount || 0,
                         gemSellBonus: cloudState.playerState.gemSellBonus || 0,
                         teleportCostBonus: cloudState.playerState.teleportCostBonus || 0,
+                        hasHeartToXPAmulet: cloudState.playerState.hasHeartToXPAmulet || false,
                     }));
                     setMissions(cloudState.missions);
                     setDevOptionsUnlocked(cloudState.devOptions.devOptionsUnlocked);
@@ -543,6 +549,7 @@ isPausedRef.current = isGamePaused;
                 let newMagnetRange = p.magnetRange;
                 let newCoinDoublerChance = p.coinDoublerChance;
                 let newTeleportCostMultiplier = p.teleportCostMultiplier;
+                let newHasHeartToXPAmulet = p.hasHeartToXPAmulet;
 
                 if (item.effect.type === 'SPEED_BOOST') newSpeed *= item.effect.value;
                 if (item.effect.type === 'INTERACTION_RANGE_BOOST') newInteractionRange *= item.effect.value;
@@ -550,6 +557,7 @@ isPausedRef.current = isGamePaused;
                 if (item.effect.type === 'MAGNET_RANGE') newMagnetRange += item.effect.value;
                 if (item.effect.type === 'COIN_DOUBLER_CHANCE') newCoinDoublerChance = Math.max(newCoinDoublerChance, item.effect.value);
                 if (item.effect.type === 'TELEPORT_COST_MULTIPLIER') newTeleportCostMultiplier = item.effect.value;
+                if (item.effect.type === 'HEART_TO_XP') newHasHeartToXPAmulet = true;
 
 
                 return {
@@ -562,6 +570,7 @@ isPausedRef.current = isGamePaused;
                     magnetRange: newMagnetRange,
                     coinDoublerChance: newCoinDoublerChance,
                     teleportCostMultiplier: newTeleportCostMultiplier,
+                    hasHeartToXPAmulet: newHasHeartToXPAmulet,
                 };
             });
             showNotification(`¡Has comprado ${item.name}!`, { sound: 'UNLOCK' });
@@ -590,6 +599,52 @@ isPausedRef.current = isGamePaused;
                 };
             });
             showNotification(`¡Has vendido una gema por ${finalSellValue} monedas!`, { sound: 'PICKUP' });
+        }
+    };
+
+    const handleSellAllGems = (color: string) => {
+        playSound('UI_CLICK');
+        const finalSellValue = Math.round(GEM_SELL_VALUE * (1 + playerState.gemSellBonus));
+        if (playerState.gems[color] && playerState.gems[color] > 0) {
+            const amount = playerState.gems[color];
+            const totalValue = amount * finalSellValue;
+            setPlayerState(p => {
+                const newGems = { ...p.gems };
+                delete newGems[color];
+                return {
+                    ...p,
+                    gems: newGems,
+                    coins: p.coins + totalValue,
+                };
+            });
+            showNotification(`¡Has vendido ${amount} gemas por ${totalValue} monedas!`, { sound: 'PICKUP' });
+        }
+    };
+
+    const handleBuyXP = () => {
+        playSound('UI_CLICK');
+        if (playerState.coins >= COIN_TO_XP_RATE) {
+            setPlayerState(p => {
+                let newXp = p.xp + XP_PER_COIN_TRADE;
+                let xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, p.level - 1);
+                let newLevel = p.level;
+    
+                while (newXp >= xpToLevelUp) {
+                    newLevel++;
+                    newXp -= xpToLevelUp;
+                    xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, newLevel - 1);
+                    showNotification(`¡Subiste de nivel! Nivel ${newLevel}`, { sound: 'UNLOCK' });
+                }
+                return {
+                    ...p,
+                    coins: p.coins - COIN_TO_XP_RATE,
+                    xp: newXp,
+                    level: newLevel,
+                };
+            });
+            showNotification(`¡Has comprado ${XP_PER_COIN_TRADE} XP!`, { sound: 'PICKUP' });
+        } else {
+            showNotification('No tienes suficientes monedas para entrenar.', { sound: 'ERROR' });
         }
     };
     
@@ -937,10 +992,11 @@ isPausedRef.current = isGamePaused;
                     
                     const playerCenterX = newX + PLAYER_WIDTH / 2;
                     const playerCenterY = newY + PLAYER_HEIGHT / 2;
-                    let playerUpdate = {};
+                    let playerUpdate: Partial<PlayerState> = {};
                     const collectedThisFrame: GameObject[] = [];
                     let coinsGained = 0;
                     const gemsGained: { [key: string]: number } = {};
+                    let xpGained = 0;
 
                     const remainingGameObjects = gameObjectsRef.current.filter(obj => {
                         if (!obj.collectibleType) return true;
@@ -958,6 +1014,10 @@ isPausedRef.current = isGamePaused;
                                 coinsGained += (obj.value || 1);
                             } else if (obj.collectibleType === 'gem' && obj.gemColor) {
                                 gemsGained[obj.gemColor] = (gemsGained[obj.gemColor] || 0) + 1;
+                            } else if (obj.collectibleType === 'heart') {
+                                if (prev.hasHeartToXPAmulet) {
+                                    xpGained += XP_PER_HEART;
+                                }
                             }
                             
                             setTimeout(() => {
@@ -1015,6 +1075,21 @@ isPausedRef.current = isGamePaused;
                              newGems[color] = (newGems[color] || 0) + amount;
                          });
                          playerUpdate = { coins: prev.coins + finalCoinsGained, gems: newGems };
+
+                         if (xpGained > 0) {
+                            let newXp = prev.xp + xpGained;
+                            let xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, prev.level - 1);
+                            let newLevel = prev.level;
+                            while (newXp >= xpToLevelUp) {
+                                newLevel++;
+                                newXp -= xpToLevelUp;
+                                xpToLevelUp = INITIAL_XP_TO_LEVEL_UP * Math.pow(1.5, newLevel - 1);
+                                showNotification(`¡Subiste de nivel! Nivel ${newLevel}`, { sound: 'UNLOCK' });
+                            }
+                            playerUpdate.xp = newXp;
+                            playerUpdate.level = newLevel;
+                            showNotification(`+${xpGained} XP!`, { duration: 1000 });
+                        }
                     }
 
                     return { ...prev, x: newX, y: newY, interactionTarget: closestTarget, isMoving, ...playerUpdate };
@@ -1043,7 +1118,8 @@ isPausedRef.current = isGamePaused;
             const viewportRect = gameViewportRef.current?.getBoundingClientRect();
             if (viewportRect) {
                 const newAnimations = newlyCollected.current.map(obj => {
-                    const targetRef = obj.collectibleType === 'coin' ? coinHudRef : gemHudRefContainer;
+                    const targetRef = obj.collectibleType === 'coin' ? coinHudRef : 
+                                      obj.collectibleType === 'heart' && playerState.hasHeartToXPAmulet ? xpBarRef : gemHudRefContainer;
                     const targetRect = targetRef.current?.getBoundingClientRect();
                     
                     const fromX = viewportRect.left + (obj.x - cameraX) + (obj.width / 2);
@@ -1174,7 +1250,7 @@ isPausedRef.current = isGamePaused;
     }
     
     const playerLevelTier = Math.min(3, Math.floor(playerState.level / 5) + 1);
-    const playerClasses = `player player-level-${playerLevelTier} ${teleportPhase !== 'idle' ? `teleport-${teleportPhase}` : ''} ${playerState.isMoving ? 'is-moving' : ''}`;
+    const playerClasses = `player player-level-${playerLevelTier} ${teleportPhase !== 'idle' ? `teleport-${teleportPhase}` : ''} ${playerState.isMoving ? 'is-moving' : ''} ${playerState.hasHeartToXPAmulet ? 'player-with-amulet' : ''}`;
     
     const objectsToRender = gameObjects.filter(obj => {
         if (currentInterior) {
@@ -1296,7 +1372,7 @@ isPausedRef.current = isGamePaused;
                 <div className="top-bar-right">
                     <div className="player-stats-top">
                         <div className="player-level">Nv. {playerState.level}</div>
-                        <div className="xp-bar-container-top" title={`${Math.round(playerState.xp)} / ${Math.round(xpToLevelUp)} XP`}>
+                        <div ref={xpBarRef} className="xp-bar-container-top" title={`${Math.round(playerState.xp)} / ${Math.round(xpToLevelUp)} XP`}>
                             <div className="xp-bar-top">
                                 <div className="xp-fill-top" style={{ width: `${(playerState.xp / xpToLevelUp) * 100}%` }}></div>
                             </div>
@@ -1375,6 +1451,8 @@ isPausedRef.current = isGamePaused;
                     onClose={() => { setIsShopOpen(false); playSound('UI_CLICK'); }}
                     onBuyItem={buyShopItem}
                     onSellGem={handleSellGem}
+                    onSellAllGems={handleSellAllGems}
+                    onBuyXP={handleBuyXP}
                 />
             )}
 

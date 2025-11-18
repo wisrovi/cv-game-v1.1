@@ -210,9 +210,9 @@ export const missions: Mission[] = [
     "referencia": "https://github.com/wisrovi/wkafka",
     "status": "bloqueada",
     "pasos": [
-      { "descripcion": "Habla con Charles, el Ingeniero.", "tipo": "interactuar", "objetoId": "npc_charles" },
-      { "descripcion": "Dirígete al Taller de Audio y recoge el Chip de Configuración WKafka.", "tipo": "recoger", "objetoId": "chip_wkafka_1", "itemId": "chip_wkafka_1" },
-      { "descripcion": "Entra en el Taller de Audio y usa el chip en la Mesa de Trabajo.", "tipo": "interactuar", "requiredItem": "chip_wkafka_1", "objetoId": "delivery_point_wkafka" }
+        { "descripcion": "Habla con Charles, el Ingeniero.", "tipo": "interactuar", "objetoId": "npc_charles" },
+        { "descripcion": "Dirígete al Taller de Audio y recoge el Chip de Configuración WKafka.", "tipo": "recoger", "objetoId": "chip_wkafka_1", "itemId": "chip_wkafka_1" },
+        { "descripcion": "Entrega el chip en el Taller de Audio (acércate al edificio).", "tipo": "entregar", "requiredItem": "chip_wkafka_1", "zona": "wkafka_building" }
     ],
     "contenido_educativo": "WKafka es una implementación optimizada de Apache Kafka, diseñada para procesamiento de streams de datos en tiempo real con latencias inferiores a 10ms.",
     "paso_actual": 0
@@ -228,8 +228,7 @@ export const missions: Mission[] = [
     "referencia": "https://github.com/wisrovi/wredis",
     "status": "bloqueada",
     "pasos": [
-      { "descripcion": "Viaja al Redis Hub.", "tipo": "info" },
-      { "descripcion": "Interactúa con el Panel del Mapa del Clúster.", "tipo": "interactuar", "objetoId": "panel_redis_map_1" }
+      { "descripcion": "Ve al Redis Hub e interactúa con el Panel del Mapa del Clúster.", "tipo": "interactuar", "objetoId": "panel_redis_map_1" }
     ],
     "contenido_educativo": "WRedis extiende Redis con capacidades avanzadas de clustering y persistencia, permitiendo escalado horizontal con particionado automático.",
     "paso_actual": 0
@@ -245,8 +244,7 @@ export const missions: Mission[] = [
     "referencia": "https://github.com/wisrovi/wcontainer",
     "status": "bloqueada",
     "pasos": [
-      { "descripcion": "Ve al Puerto GPU.", "tipo": "info" },
-      { "descripcion": "Interactúa con el Módulo de Reparación para arreglar el contenedor.", "tipo": "interactuar", "objetoId": "repair_module_1" }
+      { "descripcion": "Ve al Puerto GPU e interactúa con el Módulo de Reparación para arreglar el contenedor.", "tipo": "interactuar", "objetoId": "repair_module_1" }
     ],
     "contenido_educativo": "Wcontainer es una plataforma de orquestación especializada en cargas de trabajo de IA/ML, que optimiza la asignación de recursos GPU/TPU.",
     "paso_actual": 0
@@ -297,8 +295,7 @@ export const missions: Mission[] = [
     "referencia": "https://github.com/wisrovi/wml",
     "status": "bloqueada",
     "pasos": [
-      { "descripcion": "Dirígete al Centro de Datos (wml).", "tipo": "info" },
-      { "descripcion": "Interactúa con el Núcleo del Modelo ML para iniciar su entrenamiento.", "tipo": "interactuar", "objetoId": "ml_model_core" }
+      { "descripcion": "En el Centro de Datos (wml), interactúa con el Núcleo del Modelo ML para iniciar su entrenamiento.", "tipo": "interactuar", "objetoId": "ml_model_core" }
     ],
     "contenido_educativo": "wml es un repositorio que contiene diversos modelos y experimentos de Machine Learning, desde regresiones hasta redes neuronales profundas.",
     "paso_actual": 0

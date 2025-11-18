@@ -410,6 +410,24 @@ isPausedRef.current = isGamePaused;
         const target = playerState.interactionTarget;
         if (!target) return;
     
+        const activeMission = missions.find(m => m.status === 'disponible');
+        const currentStep = activeMission?.pasos[activeMission.paso_actual];
+
+        // --- Mission Delivery to a Zone/Building ---
+        // This is checked before general building entry to allow delivery "to" a building.
+        if (currentStep && currentStep.tipo === 'entregar' && target.id === currentStep.zona) {
+            if (currentStep.requiredItem && hasInventoryItem(currentStep.requiredItem)) {
+                removeInventoryItem(currentStep.requiredItem);
+                showNotification(`Has entregado el objeto a ${target.name || 'la zona'}.`, { sound: 'PICKUP' });
+                advanceMissionStep(activeMission!.id);
+            } else {
+                const requiredItemFromMissions = initialMissions.flatMap(m => m.pasos).find(p => p.itemId === currentStep.requiredItem);
+                const requiredItemName = gameObjects.find(go => go.id === requiredItemFromMissions?.objetoId)?.name || 'un objeto';
+                showNotification(`Necesitas ${requiredItemName}.`, { sound: 'ERROR' });
+            }
+            return; // This interaction is complete.
+        }
+
         // --- Handle Exiting an Interior ---
         if (currentInterior && target.id === 'exit_door') {
             playSound('DOOR');
@@ -462,11 +480,7 @@ isPausedRef.current = isGamePaused;
         }
     
         // --- Mission-related interactions (can happen anywhere, including interiors) ---
-        const activeMission = missions.find(m => m.status === 'disponible');
-        if (!activeMission) return;
-    
-        const currentStep = activeMission.pasos[activeMission.paso_actual];
-        if (!currentStep) return;
+        if (!activeMission || !currentStep) return;
     
         let actionTaken = false;
     
@@ -506,17 +520,11 @@ isPausedRef.current = isGamePaused;
             setGameObjects(prev => prev.filter(obj => obj.id !== target.id));
             actionTaken = true;
     
-        } else if (currentStep.tipo === 'entregar') {
+        } else if (currentStep.tipo === 'entregar') { // This now only handles NPC delivery
             const isTargetNpc = currentStep.zona?.startsWith('npc_');
             let inZone = false;
             if (isTargetNpc) {
-                inZone = playerState.interactionTarget?.id === currentStep.zona;
-            } else {
-                const zone = gameObjects.find(g => g.id === currentStep.zona);
-                if (zone) {
-                     inZone = playerState.x < zone.x + zone.width && playerState.x + PLAYER_WIDTH > zone.x &&
-                              playerState.y < zone.y + zone.height && playerState.y + PLAYER_HEIGHT > zone.y;
-                }
+                 inZone = playerState.interactionTarget?.id === currentStep.zona;
             }
     
             if(inZone) {

@@ -212,7 +212,7 @@ export const missions: Mission[] = [
     "pasos": [
         { "descripcion": "Habla con Charles, el Ingeniero.", "tipo": "interactuar", "objetoId": "npc_charles" },
         { "descripcion": "Dirígete al Taller de Audio y recoge el Chip de Configuración WKafka.", "tipo": "recoger", "objetoId": "chip_wkafka_1", "itemId": "chip_wkafka_1" },
-        { "descripcion": "Entrega el chip en el Taller de Audio (acércate al edificio).", "tipo": "entregar", "requiredItem": "chip_wkafka_1", "zona": "wkafka_building" }
+        { "descripcion": "Entra al Taller de Audio y entrega el chip en la Mesa de Trabajo.", "tipo": "interactuar", "requiredItem": "chip_wkafka_1", "objetoId": "delivery_point_wkafka" }
     ],
     "contenido_educativo": "WKafka es una implementación optimizada de Apache Kafka, diseñada para procesamiento de streams de datos en tiempo real con latencias inferiores a 10ms.",
     "paso_actual": 0

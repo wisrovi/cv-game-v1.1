@@ -561,9 +561,18 @@ body {
     align-items: center;
     gap: 20px;
     cursor: default;
+    padding-left: 15px;
+    border-left: 5px solid transparent;
+    transition: background-color 0.2s, border-color 0.2s;
+    border-radius: 4px;
 }
-.mission-item.completada { cursor: pointer; transition: background 0.2s; }
-.mission-item.completada:hover { background: rgba(255,255,255,0.05); }
+.mission-item.completada {
+    cursor: pointer;
+    border-left-color: var(--color-completed);
+}
+.mission-item.completada:hover { 
+    background: rgba(46, 204, 113, 0.1); 
+}
 
 .mission-info {
     display: flex;
@@ -586,9 +595,21 @@ body {
     opacity: 0.7;
     margin-top: 2px;
 }
-.mission-item.bloqueada { color: #888; }
+.mission-item.bloqueada {
+    color: #888;
+    border-left-color: var(--color-locked);
+    opacity: 0.7;
+}
 .mission-item.bloqueada .mission-details b, .mission-item.bloqueada .mission-details p { color: #888; }
+
+.mission-item.disponible {
+    border-left-color: var(--color-available);
+}
+.mission-item.disponible:hover {
+    background-color: rgba(241, 196, 15, 0.1);
+}
 .mission-item.disponible .mission-details b { color: var(--color-available); }
+
 .mission-item.completada .mission-details b { color: var(--color-completed); }
 
 .mission-status-icon {
